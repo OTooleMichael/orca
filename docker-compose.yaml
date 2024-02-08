@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  orca:
+    build:
+      context: .
+    environment:
+      ORCA_NAME: orca
+    volumes:
+      - .:/src
+    networks:
+      - app-network
+  task-server:
+    build:
+      context: .
+    environment:
+      ORCA_NAME: task-server
+    volumes:
+      - .:/src
+    networks:
+      - app-network
+networks:
+  app-network:
