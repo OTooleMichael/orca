@@ -1,0 +1,6 @@
+/tmp
+.DS_Store
+pycache
+__pycache__
+*.pyc 
+*.pyo
