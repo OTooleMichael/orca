@@ -1,0 +1,56 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools ~=65.0.2",
+    "wheel ~=0.37.1",
+]
+
+# FIXME: the dependencies here do not get updated with dependabot, like requirements.dev.txt does and like the previous
+#        prod requirements manifest did.
+[project]
+name = "orca"
+version = "0.0.2"
+description = "Orca"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "ignore:Accessing .* on Result type.*:DeprecationWarning"
+]
+
+[tool.coverage.run]
+omit = [
+  "alvin_graph/grpc_generated/*",
+  "*__test.py"
+]
+
+[tool.setuptools.package-dir]
+orca = "orca"
+# by offloading the deps back to a requirements.txt we can push the deps (which rarely change)
+# to a lower layer in our docker setup
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.ruff]
+select = ["E", "F", "B", "W", "I" ,"UP", "ANN", "BLE", "FBT", "A", "COM", "C4", "DTZ", "PIE", "Q", "RET", "SIM", "PL", "RUF"]
+
+ignore = ["ANN101", "ANN102", "A003", "PLR0913"]
+
+line-length = 120
+# unfixable = ["B"]
+
+# Ignore `E402` (import violations) in all `__init__.py` files, and in `path/to/file.py`.
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["E402"]
+
+[tool.mypy]
+plugins = "pydantic.mypy"
+ignore_missing_imports = true
+follow_imports = "silent"
+disallow_untyped_defs = true
+exclude = "grpc_generated/"
+
+[[tool.mypy.overrides]]
+module = "alvin_graph.grpc_generated.*"
+ignore_errors = true
