@@ -10,7 +10,9 @@ RUN pip install --no-cache-dir -r requirements.dev.txt
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt 
+ENV PYTHONPATH=/src
 
 COPY . .
+RUN pip install --no-cache-dir -e .
 
 CMD ["bash", "./scripts/start_server.sh"]
