@@ -1,7 +1,7 @@
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from multiprocessing import Process
+from threading import Lock
 
 from orca.py_event_server import Event, EventBus, emitter
 
@@ -33,13 +33,28 @@ class Orca:
     def __init__(self, emitter: EventBus) -> None:
         self.emitter = emitter
         self.tasks: dict[str, str]= {}
+        self.task_state: dict[str, tuple[str, Event]]= {}
+        self.thread_lock = Lock()
         self.graph: dict[str, list[str]]= {}
 
+    def _clean_task_states(self) -> None:
+        del_keys: list[str] = []
+        for key, (state, event) in self.task_state.items():
+            if state in ("complete", "already_complete") and event.event_epoch < (time.time() - 60) * 1000:
+                del_keys.append(key)
+
+        if not del_keys:
+            return
+
+        with self.thread_lock:
+            for key in del_keys:
+                del self.task_state[key]
+
     def start(self) -> None:
-        Process(
-            target=self.emitter.subscribe,
-            args=(self._handle_server_describe,),
-        ).start()
+        self.emitter.subscribe_thread(
+            self._handle_server_describe,
+            kill=False,
+        )
         time.sleep(1)
         self.emitter.publish(
             Event(
@@ -48,22 +63,32 @@ class Orca:
                 source_server_id="orca",
             ),
         )
+    def _graph_edge(self, from_key: str, to_key: str) -> None:
+        self.graph[from_key] = self.graph.get(from_key, [])
+        self.graph[from_key].append(to_key)
 
     def _add_task(self, task: Task, server_name: str) -> None:
-        def _graph_edge(from_key: str, to_key: str) -> None:
-            self.graph[from_key] = self.graph.get(from_key, [])
-            self.graph[from_key].append(to_key)
         self.tasks[task.name] = server_name
         for downstream_task in task.downstream_tasks:
-            _graph_edge(downstream_task, task.name)
+            self._graph_edge(downstream_task, task.name)
         for upstream_task in task.upstream_tasks:
-            _graph_edge(task.name, upstream_task)
+            self._graph_edge(task.name, upstream_task)
 
     def _handle_server_describe(self, event: Event, _: EventBus) -> None:
-        if event.source_server_id == "orca" or event.name not in ("server_describe:res", "user_run_task:req"):
+        if event.source_server_id == "orca":
             return
 
-        print(event)
+        if event.name.startswith("task_state:"):
+            __, state = event.name.split(":")
+            with self.thread_lock:
+                self.task_state[event.task_matcher] = (
+                    state,
+                    event,
+                )
+            with self.thread_lock:
+                self._clean_task_states()
+            return
+
         if event.name == "user_run_task:req":
             try:
                 run = self.create_run(event.task_matcher)
@@ -72,16 +97,23 @@ class Orca:
                 print(e)
             return
 
-        payload = event.payload or {}
-        task = Task(
-            name=event.task_matcher,
-            downstream_tasks=payload["downstream_tasks"],
-            upstream_tasks=payload["upstream_tasks"],
-        )
-        self._add_task(task, event.source_server_id)
+        if event.name == "server_describe:res":
+            task = Task(
+                name=event.task_matcher,
+                downstream_tasks=event.payload["downstream_tasks"],
+                upstream_tasks=event.payload["upstream_tasks"],
+            )
+            self._add_task(task, event.source_server_id)
+            return
         return
 
-    def create_run(self, task_name: str) -> Callable[[], None]:
+    def get_task_state(self, task_name: str) -> str:
+        with self.thread_lock:
+            state, _ = self.task_state.get(task_name, ("pending", None))
+        return state
+
+    def build_subgraph(self, task_name: str) -> list[tuple[str, str | None]]:
+        connections: list[tuple[str, str | None]]= []
         subgraph_items = []
         to_visit = [task_name]
         while to_visit:
@@ -93,22 +125,34 @@ class Orca:
                 raise ValueError(f"Task {current} does not exist")
 
             subgraph_items.append(current)
-            to_visit.extend(self.graph.get(current, []))
+            children = self.graph.get(current, [])
+            to_visit.extend(children)
+            children = children or [None]
+            connections.extend([(current, child) for child in children])
+        return connections
 
+    def create_run(self, task_name: str) -> Callable[[], None]:
+        self._clean_task_states()
+        self.build_subgraph(task_name)
 
         search_list = [task_name]
+        visited = []
         base_tasks = []
-
         while search_list:
             current_task = search_list.pop(0)
-            complete_res = self.emitter.request(
+            if current_task in visited:
+                continue
+            visited.append(current_task)
+            task_state = self.get_task_state(current_task)
+            is_completed = task_state in ("complete", "already_complete")
+            is_completed = is_completed or self.emitter.request(
                 Event(
                     task_matcher=current_task,
                     name="task_complete:req",
                     source_server_id="orca",
                 ),
-            )
-            if (complete_res.payload or {}).get("complete"):
+            ).payload.get("complete") or False
+            if is_completed:
                 self.emitter.publish(
                     Event(
                         task_matcher=current_task,
@@ -116,6 +160,9 @@ class Orca:
                         source_server_id="orca",
                     ),
                 )
+                continue
+
+            if task_state not in ("pending",):
                 continue
 
             upstream_tasks = self.graph.get(current_task, [])
@@ -151,7 +198,6 @@ class Waiter:
             return False
 
         remaining = [task for task in self.upstream_tasks if task != event.task_matcher]
-        print("Remaining", remaining, self.task_name)
         if not remaining:
             emitter.publish(
                 Event(

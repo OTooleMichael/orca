@@ -1,16 +1,14 @@
 import dataclasses
 import fcntl
 import json
-import sys
 import time
 import uuid
 from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import partial
-from multiprocessing import Manager, Process
-from multiprocessing.managers import DictProxy
 from pathlib import Path
+from threading import Lock, Thread
 
 new_entry = "foobar"
 event_file = "/tmp/event_file.txt"
@@ -56,14 +54,16 @@ class Event:
     task_matcher: str
     name: str
     source_server_id: str
-    payload: dict | None = None
+    payload: dict = field(default_factory=dict)
     event_epoch: int = field(default_factory=lambda: int(time.time() * 1000))
-    event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    event_id: str = field(default_factory=lambda: "ev_" + str(uuid.uuid4()))
 
     @property
     def event_at(self) -> datetime:
         return datetime.fromtimestamp(self.event_epoch/1000, tz=UTC)
 
+    def __repr__(self) -> str:
+        return f"<Ev {self.name}, {self.task_matcher}, {self.event_at}, {self.payload} {self.source_server_id} {self.event_id}>"
 
 
 class EventBus:
@@ -72,10 +72,13 @@ class EventBus:
     _subscribers: list[Callable[[Event, "EventBus"], None | bool]]
     def __init__(self) -> None:
         self._subscribers = []
+        self.thread_lock = Lock()
 
     def subscribe(self, callback: Callable[[Event, "EventBus"], None | bool], *, kill:bool = False) -> None:
         started_at = int(time.time() * 1000)
-        self._subscribers.append(callback)
+        with self.thread_lock:
+            self._subscribers.append(callback)
+
         for line in _tail_events():
             event = Event(**json.loads(line))
             if event.event_epoch <= started_at:
@@ -83,26 +86,30 @@ class EventBus:
             unsub_prep: list[Callable] = []
             for subscriber in self._subscribers:
                 res = subscriber(event, self)
-                if res:
-                    unsub_prep.append(subscriber)
+                if not res:
+                    continue
+                unsub_prep.append(subscriber)
 
+            if not unsub_prep:
+                continue
 
-            for unsub in unsub_prep:
-                self._subscribers.remove(unsub)
+            with self.thread_lock:
+                for unsub in unsub_prep:
+                    if unsub not in self._subscribers:
+                        print("Subscriber already removed", unsub)
+                        continue
+                    self._subscribers.remove(unsub)
 
             if kill and unsub_prep:
                 break
 
-    def subscribe_thread(self, callback: Callable[[Event, "EventBus"], None | bool]) -> Callable[[], None]:
-        thread = Process(
+    def subscribe_thread(self, callback: Callable[[Event, "EventBus"], None | bool], *, kill: bool = True) -> Callable[[], None]:
+        thread = Thread(
             target=self.subscribe,
             args=(callback, ),
-            kwargs={"kill": True},
+            kwargs={"kill": kill},
         )
         thread.start()
-        def _unsub() -> None:
-            thread.kill()
-        return _unsub
 
     def publish(self, event: Event) -> None:
         with open(event_file, "a") as f:
@@ -113,9 +120,7 @@ class EventBus:
 
     def request(self, event: Event) -> Event:
         res_event_name = f"{event.name}:res".replace(":req", "")
-        manager = Manager()
-        state = manager.dict()
-        state["res"] = None
+        state = {"res": None}
 
         callback = partial(
             _updater,
@@ -125,28 +130,26 @@ class EventBus:
         )
         self.subscribe_thread(callback)
         emitter.publish(event)
+        waited_for: float = 0
+        wait_interval = 0.1
+        max_wait = 60*1
         while state["res"] is None:
-            time.sleep(0.1)
+            if waited_for > max_wait:
+                raise TimeoutError(f"Waited for {max_wait} seconds")
+            time.sleep(wait_interval)
+            waited_for += wait_interval
+
         res = state["res"]
         assert res
 
         return res
 
-def _updater(event: Event, _: EventBus, task_matcher: str, res_event_name: str, state: DictProxy) -> bool:
-    if event.task_matcher == task_matcher and event.name == res_event_name:
+
+def _updater(event: Event, _: EventBus, task_matcher: str, res_event_name: str, state: dict) -> bool:
+    if (event.task_matcher, event.name) == (task_matcher, res_event_name):
         state["res"] = event
         return True
     return False
 
+
 emitter = EventBus()
-
-
-if __name__ == "__main__":
-    user_arg = len(sys.argv) > 1
-    now_str = datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
-    if user_arg:
-        print("publishing event")
-        emitter.publish(Event(task_matcher="*", name="test:"+now_str, source_server_id="1", payload={"foo": user_arg}))
-    else:
-        print("subscribing to events")
-        unsub = emitter.subscribe(lambda event, _: print(event))

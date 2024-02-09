@@ -2,7 +2,6 @@ import dataclasses
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from multiprocessing import Process
 
 from orca.py_event_server import Event, EventBus, emitter
 
@@ -57,19 +56,29 @@ def task_a() -> None:
     print("Task A")
 
 
-@task(upstream_tasks=["task_a"], complete_check=lambda: True)
+@task()
+def task_c() -> None:
+    print("Task C")
+
+
+@task(upstream_tasks=["task_c"])
+def task_d() -> None:
+    print("Task D")
+
+
+@task(upstream_tasks=["task_a", "task_c", "task_d"], complete_check=lambda: True)
 def task_b() -> None:
     print("Task B")
 
 
-@task(upstream_tasks=["task_a"])
+@task(upstream_tasks=["task_a", "task_c"])
 def task_1() -> None:
     print("Task 1 start")
     time.sleep(20)
     print("Task 1 end")
 
 
-@task(upstream_tasks=["task_1", "task_b"])
+@task(upstream_tasks=["task_1", "task_b", "task_d"])
 def task_2() -> None:
     print("Task 2")
 
@@ -84,7 +93,6 @@ class Server:
     def _handle_event(self, event: Event, _: EventBus) -> None:
         if event.source_server_id == self.name:
             return None
-        print(self.name, event)
 
         if event.name == "task_run:req":
             return self.run_task(event.task_matcher)
@@ -100,7 +108,7 @@ class Server:
 
     def start(self) -> None:
         # subscribe self.handle_event to the emitter on a new thread
-        Process(target=self.emitter.subscribe, args=(self._handle_event,)).start()
+        self.emitter.subscribe_thread(self._handle_event)
         self.describe()
         self.emitter.publish(
             Event(
@@ -112,7 +120,6 @@ class Server:
 
     def describe(self) -> None:
         for task in self.tasks:
-            print(self.name, task)
             self.emitter.publish(
                 Event(
                     task_matcher=task.name,
@@ -130,28 +137,26 @@ class Server:
 
     def run_task(self, name: str) -> None:
         task = self.get_task(name)
-        print(task, self._states.get(name))
-        if self._states.get(name) == "running":
+        if self._states.get(name) == "running" or not task:
             return
 
-        if task:
-            self._states[name] = "running"
-            self.emitter.publish(
-                Event(
-                    task_matcher=name,
-                    name="task_state:started",
-                    source_server_id=self.name,
-                ),
-            )
-            task()
-            del self._states[name]
-            self.emitter.publish(
-                Event(
-                    task_matcher=name,
-                    name="task_state:complete",
-                    source_server_id=self.name,
-                ),
-            )
+        self._states[name] = "running"
+        self.emitter.publish(
+            Event(
+                task_matcher=name,
+                name="task_state:started",
+                source_server_id=self.name,
+            ),
+        )
+        task()
+        del self._states[name]
+        self.emitter.publish(
+            Event(
+                task_matcher=name,
+                name="task_state:complete",
+                source_server_id=self.name,
+            ),
+        )
 
     def check_task_complete(self, name: str) -> bool:
         task = self.get_task(name)
@@ -173,6 +178,8 @@ server_a = Server(
     tasks=[
         task_a,
         task_b,
+        task_c,
+        task_d,
     ],
     emitter=emitter,
 )
