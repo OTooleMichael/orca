@@ -3,7 +3,9 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from orca.models import EventName, EventType, State
 from orca.py_event_server import Event, EventBus, emitter
+from orca.utils import orca_id
 
 RunableType = Callable[[], None]
 
@@ -51,9 +53,14 @@ def task(
     return _decorator
 
 
-@task()
-def task_a() -> None:
+@task(upstream_tasks=["task_d", "task_c"])
+def task_b() -> None:
     print("Task A")
+
+
+@task()
+def task_d() -> None:
+    print("Task D")
 
 
 @task()
@@ -61,24 +68,21 @@ def task_c() -> None:
     print("Task C")
 
 
-@task(upstream_tasks=["task_c"])
-def task_d() -> None:
-    print("Task D")
-
-
 @task(upstream_tasks=["task_a", "task_c", "task_d"], complete_check=lambda: True)
-def task_b() -> None:
-    print("Task B")
+def task_a() -> None:
+    print("START  A")
+    time.sleep(2)
+    print("COMPLETe Task A")
 
 
-@task(upstream_tasks=["task_a", "task_c"])
+@task(upstream_tasks=["task_2", "task_b", "task_d"])
 def task_1() -> None:
     print("Task 1 start")
-    time.sleep(20)
+    time.sleep(2)
     print("Task 1 end")
 
 
-@task(upstream_tasks=["task_1", "task_b", "task_d"])
+@task(upstream_tasks=["task_a", "task_c"])
 def task_2() -> None:
     print("Task 2")
 
@@ -89,22 +93,23 @@ class Server:
     tasks: list[Task]
     emitter: EventBus = emitter
     _states: dict[str, str] = field(default_factory=dict)
+    server_id: str = field(default_factory=lambda: orca_id("server"))
 
     def _handle_event(self, event: Event, _: EventBus) -> None:
         if event.source_server_id == self.name:
             return None
 
-        if event.name == "task_run:req":
-            return self.run_task(event.task_matcher)
-        if event.name == "task_complete:req":
-            self.check_task_complete(event.task_matcher)
-            return None
-
-        if event.name == "server_describe:req":
-            self.describe()
-            return None
-
-        return None
+        match (event.name, event.event_type):
+            case (EventName.run_task, EventType.request):
+                return self.run_task(event.task_matcher)
+            case (EventName.task_complete, EventType.request):
+                self.check_task_complete(event.task_matcher)
+                return None
+            case (EventName.describe_server, EventType.request):
+                self.describe()
+                return None
+            case _:
+                return None
 
     def start(self) -> None:
         # subscribe self.handle_event to the emitter on a new thread
@@ -113,7 +118,8 @@ class Server:
         self.emitter.publish(
             Event(
                 task_matcher="",
-                name="server_state:ready",
+                name="server_state",
+                state=State.ready,
                 source_server_id=self.name,
             ),
         )
@@ -123,7 +129,8 @@ class Server:
             self.emitter.publish(
                 Event(
                     task_matcher=task.name,
-                    name="server_describe:res",
+                    name="describe_server",
+                    event_type=EventType.response,
                     source_server_id=self.name,
                     payload={
                         "upstream_tasks": task.upstream_tasks,
@@ -144,7 +151,8 @@ class Server:
         self.emitter.publish(
             Event(
                 task_matcher=name,
-                name="task_state:started",
+                name=EventName.task_state,
+                state=State.started,
                 source_server_id=self.name,
             ),
         )
@@ -153,7 +161,8 @@ class Server:
         self.emitter.publish(
             Event(
                 task_matcher=name,
-                name="task_state:complete",
+                name=EventName.task_state,
+                state=State.completed,
                 source_server_id=self.name,
             ),
         )
@@ -165,7 +174,8 @@ class Server:
             self.emitter.publish(
                 Event(
                     task_matcher=name,
-                    name="task_complete:res",
+                    name=EventName.task_complete,
+                    event_type=EventType.response,
                     source_server_id=self.name,
                     payload={"complete": complete},
                 ),

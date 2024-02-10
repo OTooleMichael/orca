@@ -1,14 +1,16 @@
 import sys
 from functools import partial
 
+from orca.models import EventName
 from orca.py_event_server import Event, EventBus, emitter
 
 
 def _waiter(event: Event, _: EventBus, target_task: str) -> bool:
-    if event.name.startswith("task_state:"):
-        print(event)
+    should_indent = event.name != EventName.task_state
+    print("   " if should_indent else "", event)
 
-    is_finised = event.name in ("task_state:complete", "task_state:already_complete") and event.task_matcher == target_task
+    is_finised = event.state.is_terminal() and event.task_matcher == target_task
+
     if is_finised:
         print("Finished!!")
     return is_finised
@@ -18,7 +20,8 @@ if __name__ == "__main__":
     emitter.publish(
         Event(
             task_matcher=task_name,
-            name="user_run_task:req",
+            name=EventName.user_run_task,
+            event_type="request",
             source_server_id=":user",
         ),
     )
