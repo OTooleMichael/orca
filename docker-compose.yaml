@@ -5,6 +5,7 @@ services:
       - redis
     build:
       context: .
+      dockerfile: ./cerebro/Dockerfile
     environment:
       ORCA_NAME: cerebro
     volumes:
@@ -18,6 +19,7 @@ services:
       - cerebro
     build:
       context: .
+      dockerfile: ./task_server/Dockerfile
     environment:
       ORCA_NAME: task-server
     volumes:
