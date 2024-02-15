@@ -12,7 +12,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt 
 ENV PYTHONPATH=/src
 
-COPY . .
-RUN pip install --no-cache-dir -e .
+COPY orca_tools /orca_tools
+RUN pip install --no-cache-dir -e /orca_tools
 
 CMD ["bash", "./scripts/start_server.sh"]

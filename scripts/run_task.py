@@ -1,8 +1,8 @@
 import sys
 from functools import partial
 
-from orca.models import EventName
-from orca.py_event_server import Event, EventBus, emitter
+from cerebro.models import EventName
+from cerebro.py_event_server import Event, EventBus, emitter
 
 
 def _waiter(event: Event, _: EventBus, target_task: str) -> bool:

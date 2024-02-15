@@ -1,16 +1,21 @@
 version: "3.9"
 services:
-  orca:
+  cerebro:
+    depends_on:
+      - redis
     build:
       context: .
     environment:
-      ORCA_NAME: orca
+      ORCA_NAME: cerebro
     volumes:
       - .:/src
       - ./tmp:/tmp
     networks:
       - app-network
   task-server:
+    depends_on:
+      - redis
+      - cerebro
     build:
       context: .
     environment:
