@@ -4,8 +4,8 @@ from collections.abc import Callable, Generator
 from functools import partial
 from threading import Lock, Thread
 
-from orca.models import Event, EventName, EventType
-from orca.redis_orca import get_connection
+from orca_tools.models import Event, EventName, EventType
+from orca_tools.redis_orca import get_connection
 
 MESSAGE_CHANNEL = "orca:events"
 
