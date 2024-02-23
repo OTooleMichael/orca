@@ -67,18 +67,23 @@ Other potential names for inspiration:
 
 
 ## Mission:
-- create a tool that let's you orchestrate whatever (really) you want as freely as possible while enforcing maintenance of minimal formal practices that are necessary to efficiently collaborate across a large-scale inter-dependendent softare company (or an SME-company with multiple dev teams)
+- Centrally manage distributed workloads
 
-- this project is a collaboration of multiple engineers and analysts from the data and analytics industry, but aims to be applicable to any field with complex task-based orchestration requirements
+- Orchestrate any set of tasks. Language agnostic and non-prohibitive in objective. "A task" can be anything, a data-import job in python, an e-mail distribution in java, a google sheet update in python, a sql-transformation pipeline with dbt, you name it. A task may depend on other tasks in the network to have run first, or within a certain timeframe.
 
-- in the absence of any presently sufficient tooling to ideally support the data pipelining efforts of medium to large-scale enterprises, we provide a solution that aims towards building self-reliable provisioning-capabilities to data-originating teams. As such, we provide the first foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
+- Dynamically assessing the required run-order
 
-- This framework prevents the common problem of seemingly disconnected code changes of one team, breaking downstream code of another team, as it aims to provide truly integrated testing across the whole data pipeline [generation to dashboard], and correctly identifies and notifies the responsible team if problems occur.
+- Enforcing compliance with standardized minimalistic communication framework for all participants in the network. As such, ensuring continuous effective collaboration among multiple inter-dependendent dev-teams. 
 
-- We're language-agnostic. Whatever you want to run as an orchestrated task in a pipeline, you can run it. We provide a standard task-server project in python. You can easily build your own in the language of your preference, and we encourage / actively support those efforts.
+- While being a joint effort of engineers and analysts with backgrounds in various analytical data processing setups, the project aims to also be applicable to any other problem-field with complex task-based orchestration requirements
 
-- While built from a data-pipelining perspective, it's not limited to that at all. Any process can run as a task in our framework.
+- In the absence of any presently available tooling that sufficiently supports the data pipelining efforts of medium to large-scale enterprises, we provide a solution that aims towards granting self-reliable provisioning-capabilities to data-originating, data-processing, and data-consuming teams. As such, it can be seen as a foundational framework that support the implementation of a 🌈💥✨***data-mesh***✨💥🌈
 
+- The minimalistic framework approach guarantees ease of use and a broad applicability to task-based orchestration problems, rather than creating the need to suppress or circumvent certain unwanted behaviours of more opinionated / purpose-tailored tools on the market, in order to fit them to the individual requirements.
+
+- The framework targets to mitigate the common issue of seemingly disconnected code changes of one team, breaking the "down-stream" code of another team. That is achieved by providing the opportunity of integrated testing, across all the teams that are involved along the data pipeline [generation to dashboard], as opposed to having the teams test their code in isolation. The framework supports with correctly identifying and notififying the responsible team if issues occur.
+
+- The framework is language-agnostic. While a standard task-server in python is provided, anyone is invited to write their own implementation of a task-server in any language, that can be custom tailored to perform any set of tasks. The only requirement is the compliance with the event-based communication protocol to interact with the central "cerebro" instance.
 
 
 
