@@ -6,13 +6,13 @@ WORKDIR /src
 ENV PYTHONPATH=/src
 ENV CMAKE_CXX_COMPILER=g++
 
-COPY task_server/requirements.dev.txt ./
+COPY task_server_a/requirements.dev.txt ./
 RUN pip install --no-cache-dir -r requirements.dev.txt
 
-COPY task_server/requirements.txt ./
+COPY task_server_a/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt 
 
 COPY orca_tools /orca_tools
 RUN pip install --no-cache-dir -e /orca_tools
 
-CMD ["python", "task_server/__init__.py"]
+CMD ["python", "task_server_a/__init__.py"]

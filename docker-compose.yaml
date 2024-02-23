@@ -13,15 +13,29 @@ services:
       - ./tmp:/tmp
     networks:
       - app-network
-  task-server:
+  task-server-a:
     depends_on:
       - redis
       - cerebro
     build:
       context: .
-      dockerfile: ./task_server/Dockerfile
+      dockerfile: ./task_server_a/Dockerfile
     environment:
-      ORCA_NAME: task-server
+      ORCA_NAME: task-server-a-test
+    volumes:
+      - .:/src
+      - ./docker-data/tmp:/tmp
+    networks:
+      - app-network
+  task-server-b:
+    depends_on:
+      - redis
+      - cerebro
+    build:
+      context: .
+      dockerfile: ./task_server_b/Dockerfile
+    environment:
+      ORCA_NAME: task-server-b-test
     volumes:
       - .:/src
       - ./docker-data/tmp:/tmp

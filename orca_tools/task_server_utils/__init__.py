@@ -53,40 +53,6 @@ def task(
     return _decorator
 
 
-@task(upstream_tasks=["task_d", "task_c"])
-def task_b() -> None:
-    print("Task A")
-
-
-@task()
-def task_d() -> None:
-    print("Task D")
-
-
-@task()
-def task_c() -> None:
-    print("Task C")
-
-
-@task(upstream_tasks=["task_a", "task_c", "task_d"], complete_check=lambda: True)
-def task_a() -> None:
-    print("START  A")
-    time.sleep(2)
-    print("COMPLETe Task A")
-
-
-@task(upstream_tasks=["task_2", "task_b", "task_d"])
-def task_1() -> None:
-    print("Task 1 start")
-    time.sleep(2)
-    print("Task 1 end")
-
-
-@task(upstream_tasks=["task_a", "task_c"])
-def task_2() -> None:
-    print("Task 2")
-
-
 @dataclasses.dataclass
 class Server:
     name: str
@@ -182,30 +148,3 @@ class Server:
             )
 
         return False
-
-server_a = Server(
-    name="server_a",
-    tasks=[
-        task_a,
-        task_b,
-        task_c,
-        task_d,
-    ],
-    emitter=emitter,
-)
-server_b = Server(
-    name="server_b",
-    tasks=[
-        task_1,
-        task_2,
-    ],
-    emitter=emitter,
-)
-
-
-def main() -> None:
-    server_a.start()
-    server_b.start()
-
-if __name__ == "__main__":
-    main()
