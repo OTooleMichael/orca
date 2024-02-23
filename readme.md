@@ -18,11 +18,11 @@ i (thomas) have a clear preference:
 
 - this project is a collaboration of multiple engineers and analysts from the data and analytics industry, but aims to be applicable to any field with complex task-based orchestration requirements
 
-- in the absence of any present sufficient tooling to ideally support the data pipelining efforts of medium to large-scale enterprises, we provide a solution that aims towards building self-reliable provisioning capabilities to data-originating teams. As such, we provide the first foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
+- in the absence of any presently sufficient tooling to ideally support the data pipelining efforts of medium to large-scale enterprises, we provide a solution that aims towards building self-reliable provisioning-capabilities to data-originating teams. As such, we provide the first foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
 
-- This framework prevents the common problem of seemingly disconnected code changes of one team, breaking downstream code of another team, as it aims to provide truly integrated testing across the whole data pipeline [generation to dashboard], and correctly identifies and notifies the responsible team.
+- This framework prevents the common problem of seemingly disconnected code changes of one team, breaking downstream code of another team, as it aims to provide truly integrated testing across the whole data pipeline [generation to dashboard], and correctly identifies and notifies the responsible team if problems occur.
 
-- We're language-agnostic. Whatever you want to run as an orchestrated task in a pipeline, you can run it. We provide a standard task-server project in python. You can easily build your own in the language of your preference.
+- We're language-agnostic. Whatever you want to run as an orchestrated task in a pipeline, you can run it. We provide a standard task-server project in python. You can easily build your own in the language of your preference, and we encourage / actively support those efforts.
 
 - While built from a data-pipelining perspective, it's not limited to that at all. Any process can run as a task in our framework.
 
