@@ -1,37 +1,56 @@
 import time
-from collections.abc import Callable
-from dataclasses import dataclass, field
 from threading import Lock
+from dataclasses import dataclass, field
+from collections.abc import Callable
 
-from orca_tools.models import EventName, EventType, State
+from orca_tools.models import EventName, EventType, State, Task
 from orca_tools.py_event_server import Event, EventBus, emitter
-from orca_tools.utils import orca_id
 
-RunableType = Callable[[], None]
 
 
 @dataclass
-class Task:
-    name: str
-    downstream_tasks: list[str] = field(default_factory=list)
-    upstream_tasks: list[str] = field(default_factory=list)
-    run: RunableType | None = None
-    complete_check: Callable[[], bool] | None = None
+class Waiter:
+    task_name: str
+    upstream_tasks: list[str]
+    thread_lock: Lock
+    waiter_id: str = field(default_factory=lambda: orca_id("waiter"))
+    _is_dead: bool = False
+    _original_upstream_tasks: list[str] = field(init=False, default_factory=list)
 
-    def __call__(self) -> None:
-        if self.run:
-            self.run()
+    def run(self, emitter: EventBus) -> None:
+        emitter.publish(
+            Event(
+                task_matcher=self.task_name,
+                name=EventName.run_task,
+                event_type=EventType.request,
+                source_server_id="orca",
+            ),
+        )
 
-    def is_complete(self) -> bool:
-        if self.complete_check:
-            return self.complete_check()
+    def __call__(self, event: Event, emitter: EventBus) -> bool:
+        if self._is_dead:
+            return True
 
+        if event.name != EventName.task_state or not event.state.is_terminal():
+            return False
+
+        if event.task_matcher not in self.upstream_tasks:
+            return False
+
+        with self.thread_lock:
+            if not self._original_upstream_tasks:
+                self._original_upstream_tasks = self.upstream_tasks
+            self.upstream_tasks = [task for task in self.upstream_tasks if task != event.task_matcher]
+
+        if not self.upstream_tasks:
+            self._is_dead = True
+            self.run(emitter)
+            return True
         return False
 
-
-class Orca:
+class Cerebro:
     emitter: EventBus
-    server_name: str = "orca"
+    server_name: str = "cerebro"
 
     def __init__(self, emitter: EventBus) -> None:
         self.emitter = emitter
@@ -54,14 +73,14 @@ class Orca:
                 del self.task_state[key]
 
     def start(self) -> None:
-        self.emitter.subscribe_thread(self._handle_server_describe, "orca_loop")
+        self.emitter.subscribe_thread(self._handle_server_describe, "testing_event_thread")
         time.sleep(1)
         self.emitter.publish(
             Event(
                 task_matcher="",
                 name=EventName.describe_server,
                 event_type=EventType.request,
-                source_server_id="cerebro",
+                source_server_id=self.server_name,
             ),
         )
 
@@ -150,7 +169,7 @@ class Orca:
                     task_matcher=current_task,
                     name=EventName.task_complete,
                     event_type=EventType.request,
-                    source_server_id="orca",
+                    source_server_id=self.server_name,
                 ),
             ).payload.get("complete") or False
             if is_completed:
@@ -176,7 +195,7 @@ class Orca:
                         task_matcher=current_task,
                         name=EventName.task_state,
                         state=State.already_complete,
-                        source_server_id="orca",
+                        source_server_id=self.server_name,
                     ),
                 )
             for task_name in set(base_tasks):
@@ -185,60 +204,19 @@ class Orca:
                         task_matcher=task_name,
                         name=EventName.run_task,
                         event_type=EventType.request,
-                        source_server_id="orca",
+                        source_server_id=self.server_name,
                     ),
                 )
         return execute_tree
 
 
-@dataclass
-class Waiter:
-    task_name: str
-    upstream_tasks: list[str]
-    thread_lock: Lock
-    waiter_id: str = field(default_factory=lambda: orca_id("waiter"))
-    _is_dead: bool = False
-    _original_upstream_tasks: list[str] = field(init=False, default_factory=list)
-
-    def run(self, emitter: EventBus) -> None:
-        emitter.publish(
-            Event(
-                task_matcher=self.task_name,
-                name=EventName.run_task,
-                event_type=EventType.request,
-                source_server_id="orca",
-            ),
-        )
-
-    def __call__(self, event: Event, emitter: EventBus) -> bool:
-        if self._is_dead:
-            return True
-
-        if event.name != EventName.task_state or not event.state.is_terminal():
-            return False
-
-        if event.task_matcher not in self.upstream_tasks:
-            return False
-
-        with self.thread_lock:
-            if not self._original_upstream_tasks:
-                self._original_upstream_tasks = self.upstream_tasks
-            self.upstream_tasks = [task for task in self.upstream_tasks if task != event.task_matcher]
-
-        if not self.upstream_tasks:
-            self._is_dead = True
-            self.run(emitter)
-            return True
-        return False
-
-
-orca = Orca(
+cerebro = Cerebro(
     emitter=emitter,
 )
 
 def main() -> None:
-    orca.start()
-    print("Orca Listening")
+    cerebro.start()
+    print("Cerebro Listening")
 
 if __name__ == "__main__":
     main()
