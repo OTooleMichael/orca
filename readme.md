@@ -5,12 +5,22 @@ i (thomas) have a clear preference:
 ![cordyna](image.png)
 
 - all tld domains still available
-- -> easy to find when your google
+- -> would be easy to find when you google
 - "dyna do x" -> fine cli command
 - memorizable like a girl's name
 - "coordination" / "core" + "dynamic"
 - brandable / unique
 - multi-purpose: non-data and non-product limited (can also be used as company name for general contracting, plus binding in adjacent ppl's projects like e.g. marketing-alex, or pretty much anything else, should we have to pivot..
+
+
+## Mission:
+- create a tool that let's you orchestrate whatever (really) you want as freely as possible while enforcing maintenance of minimal formal practices that are necessary to efficiently collaborate across a large-scale inter-dependendent softare company (or an SME-company with multiple dev teams)
+
+- this project is a collaboration of multiple engineers and analysts from the data and analytics industry, but aims to by applicable to any field with complex task-based orchestration requirements
+
+- in the absence of any presenet sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies we provide a solution that aims towards building self-reliable data provisioning capabilities of source data teams, and as such, a foundational framework that at its core was built to support the acutal implementation of a data-mesh
+
+
 
 
 ## Mission Plan:
@@ -30,6 +40,8 @@ continuously test:
     - upon "acknowledged": 10 min for "task-started"
     - upon "task-started": 30 min for "task-completed"
 
+
+(there's more written down but it's too late to paste/refrac it all tonight)
 
 
 ## Vocab/Lingo
@@ -59,3 +71,4 @@ TASK_STATE["error"]: there was either an error while actually processing the tas
 - minimise the common dependencies in req.txt, just install ***insert-cool-name*** (ours)
 - found a github organization under which we can create proper repos & access rights
 - setup a minimal continuous cloud project + CI / CD
+- prevent the docker mess (volume/build-cache/images/containers) after mulit-re-building the project locally
