@@ -1,6 +1,8 @@
 # YetAnotherProjectWithoutName
 
-i (thomas) have a clear preference:
+
+i (thomas) have obviously a clear preference 😄 :
+
 
 ![cordyna](image.png)
 
@@ -29,6 +31,17 @@ i (thomas) have a clear preference:
 
 
 
+## How Run?
+- (get a mac)
+- get warp
+- get orbstack
+- clone repo
+- docker-compose up
+- (yet to come:) xxx run task-3
+- you should see task-server-b, which hosts task-3 to ask cerebro to run it.
+- this should trigger cerebro to run the upstream dependencies in correct order. Those taskss partially being managed by a different server (task-server-a).
+
+
 ## Mission Plan:
 create a clear distinction for test cases:
 
@@ -49,10 +62,9 @@ continuously test:
 
 (there's more written down but it's too late to paste/refrac it all tonight)
 
-
-## Vocab/Lingo (or common understanding)
-- state updates vs commands
-- task state vs server state
+## Vocab/Lingo
+- state updates vs commands (both via events)
+- task state vs server state ("hey i'm up and have these tasks with these props" VS "hey i'm now running {This}")
 
 - A task-server may boot and declare itself as SERVER_STATE["ready"]
     - right afterwards or as part of that ready-message, the server must declar what tasks it is responsible for.
