@@ -83,19 +83,17 @@ Other potential names for inspiration:
 
 
 ## How Run?
-- (get a mac)
-- get warp
-- get orbstack
-- clone repo
-- run docker-compose up in the project's root-dir
+- get a docker engine (we advise for orbstack)
+- install docker-compose
+- clone the repo
+- run ```docker-compose up``` in the project's root-dir
 - you should see 4 services booting:
     - cerebro
     - redis
     - task-server-a
     - task-server-b
-- (yet to come:) xxx run task-3
-- you should see task-server-b, which hosts task-3 to ask cerebro to run it.
-- this should trigger cerebro to run the upstream dependencies in correct order. Those taskss partially being managed by a different server (task-server-a).
+- (yet to come: "[name] run task-3" cli commands )
+
 
 
 ## Mission Plan:
