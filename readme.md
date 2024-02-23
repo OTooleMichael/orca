@@ -2,8 +2,6 @@
 
 ## Naming
 
-Not that easy
-
 ***Orca***:
 - Just the nicest name, long standing, already used to
 - impossible to get domain. Hundreds of companies with that name preexisting. It's hard to google and end up with actual results pointing at this product.
@@ -18,7 +16,7 @@ Not that easy
 
 
 
-***Cordyna***: (current preference thomas)
+***Cordyna***:
 - all tld domains still available
 - -> would be easy to find when you google
 - "dyna do x" -> fine cli command
@@ -26,6 +24,11 @@ Not that easy
 - "coordination" / "core" + "dynamic"
 - brandable / unique
 - multi-purpose: non-data and non-product limited -> can also be used as company name for general contracting, plus binding in adjacent ppl's projects like e.g. marketing-alex, or pretty much anything else, should we have to pivot..
+
+
+***APF*** / A Pipeline Framework
+![alt text](image-1.png)
+
 
 Other potential names for inspiration:
 - chaincontrol.cc
@@ -139,7 +142,7 @@ continuously test:
 TASK_STATE["error"]: there was either an error while actually processing the task OR cerebro created this event because no acknowledgement (queued/started) was given by the server within 10 sec. In the first case, the task-server's team is responsible for providing a proper description into the event
 
 
-## what my goals are now (thomas)
+## up next
 - split the servers and make it clear who comms w/ whom
 - make the task-servers declare themselvers to cerebro
 - make it easy to cronjob a task while declaring it (e.g. 60 sec for test)

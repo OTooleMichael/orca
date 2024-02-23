@@ -1,34 +1,9 @@
-import dataclasses
-import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
+from collections.abc import Callable
 
-from orca_tools.models import EventName, EventType, State
+from orca_tools.models import EventName, EventType, State, Task, RunableType
 from orca_tools.py_event_server import Event, EventBus, emitter
 from orca_tools.utils import orca_id
-
-RunableType = Callable[[], None]
-
-
-@dataclass
-class Task:
-    name: str
-    downstream_tasks: list[str] = field(default_factory=list)
-    upstream_tasks: list[str] = field(default_factory=list)
-    run: RunableType | None = None
-    complete_check: Callable[[], bool] | None = None
-
-    def __call__(self) -> None:
-        if self.run:
-            self.run()
-
-    def is_complete(self) -> bool:
-        if self.complete_check:
-            return self.complete_check()
-
-        return False
-
-
 def task(
     func: RunableType | None = None,
     *,
@@ -53,7 +28,7 @@ def task(
     return _decorator
 
 
-@dataclasses.dataclass
+@dataclass
 class Server:
     name: str
     tasks: list[Task]

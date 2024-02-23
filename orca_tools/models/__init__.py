@@ -1,8 +1,9 @@
 import time
-from datetime import UTC, datetime
 from enum import Enum
-
+from datetime import UTC, datetime
+from dataclasses import dataclass, field
 from pydantic import BaseModel, Field
+from collections.abc import Callable
 
 from orca_tools.utils import orca_id
 
@@ -14,6 +15,49 @@ STATES = [
     "already_complete",
     "failed_upstream",
 ]
+
+RunableType = Callable[[], None]
+
+@dataclass
+class Task:
+    name: str
+    downstream_tasks: list[str] = field(default_factory=list)
+    upstream_tasks: list[str] = field(default_factory=list)
+    run: RunableType | None = None
+    complete_check: Callable[[], bool] | None = None
+
+    def __call__(self) -> None:
+        if self.run:
+            self.run()
+
+    def is_complete(self) -> bool:
+        if self.complete_check:
+            return self.complete_check()
+
+        return False
+    
+def task(
+    func: RunableType | None = None,
+    *,
+    name: str | None = None,
+    downstream_tasks: list[str] | None = None,
+    upstream_tasks: list[str] | None = None,
+    complete_check: Callable[[], bool] | None = None,
+) -> Callable:
+    if func and callable(func):
+        return task()(func)
+
+    def _decorator(func: RunableType) -> Task:
+        _name = name or func.__name__
+        return Task(
+            name=_name,
+            run=func,
+            downstream_tasks=downstream_tasks or [],
+            upstream_tasks=upstream_tasks or [],
+            complete_check=complete_check,
+        )
+
+    return _decorator
 
 class EventType(Enum):
     event = "event"
