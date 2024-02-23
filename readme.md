@@ -69,7 +69,7 @@ Other potential names for inspiration:
 ## Mission:
 - Centrally manage distributed workloads
 
-- Orchestrate any set of tasks. Language agnostic and non-prohibitive in objective. "A task" can be anything, a data-import job in python, an e-mail distribution in java, a google sheet update in python, a sql-transformation pipeline with dbt, you name it. A task may depend on other tasks in the network to have run first, or within a certain timeframe.
+- Orchestrate any set of tasks. Language agnostic and non-prohibitive in objective. "A task" can be anything, a data-import job in rust, an e-mail distribution in java, a google sheet update in python, a sql-transformation pipeline with dbt, you name it. A task may depend on other tasks in the network to have run first, or within a certain timeframe.
 
 - Dynamically assessing the required run-order
 
