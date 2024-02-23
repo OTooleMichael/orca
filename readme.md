@@ -16,9 +16,9 @@ i (thomas) have a clear preference:
 ## Mission:
 - create a tool that let's you orchestrate whatever (really) you want as freely as possible while enforcing maintenance of minimal formal practices that are necessary to efficiently collaborate across a large-scale inter-dependendent softare company (or an SME-company with multiple dev teams)
 
-- this project is a collaboration of multiple engineers and analysts from the data and analytics industry, but aims to by applicable to any field with complex task-based orchestration requirements
+- this project is a collaboration of multiple engineers and analysts from the data and analytics industry, but aims to be applicable to any field with complex task-based orchestration requirements
 
-- in the absence of any presenet sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies we provide a solution that aims towards building self-reliable data provisioning capabilities of source data teams, and as such, a foundational framework that at its core was built to support the acutal implementation of a data-mesh
+- in the absence of any present sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies we provide a solution that aims towards building self-reliable source-data provisioning capabilities of data-originating teams within a company, and as such, we provide a foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
 
 
 
