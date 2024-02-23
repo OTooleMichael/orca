@@ -18,7 +18,11 @@ i (thomas) have a clear preference:
 
 - this project is a collaboration of multiple engineers and analysts from the data and analytics industry, but aims to be applicable to any field with complex task-based orchestration requirements
 
-- in the absence of any present sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies, we provide a solution that aims towards building self-reliable source-data provisioning capabilities to data-originating teams, and as such, we provide a foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
+- in the absence of any present sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies, we provide a solution that aims towards building self-reliable provisioning capabilities to data-originating teams, and as such, we provide a foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
+
+- We're language-agnostic. Whatever you want to run as an orchestrated task in a pipeline, you can run it. We provide a standard task-server project in python. You can easily build your own in the language of your preference.
+
+- While built from a data-pipelining perspective, it's not limited to that at all. Any process can run as a task in our framework.
 
 
 
