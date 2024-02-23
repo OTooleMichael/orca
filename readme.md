@@ -46,8 +46,8 @@ continuously test:
 
 
 ## Vocab/Lingo
-- state updates vs commands
-- task state vs server state
+- state updates vs commands (both via events)
+- task state vs server state ("hey i'm up and have these tasks with these props" VS "hey i'm now running {This}")
 
 - *TASK*: COMMAND["run"] vs COMMAND["invoke"]:
 
