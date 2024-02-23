@@ -18,7 +18,7 @@ i (thomas) have a clear preference:
 
 - this project is a collaboration of multiple engineers and analysts from the data and analytics industry, but aims to be applicable to any field with complex task-based orchestration requirements
 
-- in the absence of any present sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies we provide a solution that aims towards building self-reliable source-data provisioning capabilities of data-originating teams within a company, and as such, we provide a foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
+- in the absence of any present sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies, we provide a solution that aims towards building self-reliable source-data provisioning capabilities to data-originating teams, and as such, we provide a foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
 
 
 
@@ -83,3 +83,4 @@ TASK_STATE["error"]: there was either an error while actually processing the tas
 ## What if ..?
 - what if cerebro is down? recoverability? missed crons?
 - what if a task-server ran half of the tasks and then reboots?
+- what if we behaved to the outside like a normal API? i.e. you can command / request from the outside like with any other api, but the eventbased comms are limited to the task-server-cerebro comms?
