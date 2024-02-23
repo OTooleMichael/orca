@@ -20,6 +20,8 @@ i (thomas) have a clear preference:
 
 - in the absence of any present sufficient tooling to ideally support the data pipelining efforts of medium to large-scale companies, we provide a solution that aims towards building self-reliable provisioning capabilities to data-originating teams, and as such, we provide a foundational framework that, at its core, was built to support the acutal implementation of a 👋👋 data-mesh 👋👋
 
+- This framework prevents the common problem of seemingly disconnected code changes of one team, breaking downstream code of another team, as it aims to provide truly integrated testing across the whole data pipeline [generation to dashboard], and correctly identifies and notifies the responsible team.
+
 - We're language-agnostic. Whatever you want to run as an orchestrated task in a pipeline, you can run it. We provide a standard task-server project in python. You can easily build your own in the language of your preference.
 
 - While built from a data-pipelining perspective, it's not limited to that at all. Any process can run as a task in our framework.
@@ -43,7 +45,6 @@ continuously test:
     - upon invocation command: 10 sec for "acknowledged" / "task-started"
     - upon "acknowledged": 10 min for "task-started"
     - upon "task-started": 30 min for "task-completed"
-- This framework prevents the common problem of seemingly disconnected code changes of one team, breaking downstream code of another team, as it aims to provide truly integrated testing across the whole data pipeline [generation to dashboard], and correctly identifies and notifies the responsible team.
 
 
 (there's more written down but it's too late to paste/refrac it all tonight)
