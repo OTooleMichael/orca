@@ -94,6 +94,8 @@ TASK_STATE["error"]: there was either an error while actually processing the tas
 - found a github organization under which we can create proper repos & access rights
 - setup a minimal continuous cloud project + CI / CD
 - prevent the docker mess (volume/build-cache/images/containers) after mulit-re-building the project locally
+- basic github repo control (only squash merge, (proper tick number), mandatory reviewers, auto-close branch post-merge, repo/org-wide secrets for ci/cd
+- pre-commit linting
 
 
 
