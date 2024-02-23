@@ -1,18 +1,69 @@
-# YetAnotherProjectWithoutName
+# YetAnotherOrchestrator
+
+## Naming
+
+Not that easy
+
+***Orca***:
+- Just the nicest name, long standing, already used to
+- impossible to get domain. Hundreds of companies with that name preexisting. It's hard to google and end up with actual results pointing at this product.
 
 
-i (thomas) have obviously a clear preference 😄 :
+***yetanotherX***:
+- yalf / yaflow / yatt (yet another tranformer tool)
 
 
-![cordyna](image.png)
+***openX***:
+- open orchestrator? open task engine?
 
+
+
+***Cordyna***: (current preference thomas)
 - all tld domains still available
 - -> would be easy to find when you google
 - "dyna do x" -> fine cli command
 - memorizable like a girl's name
 - "coordination" / "core" + "dynamic"
 - brandable / unique
-- multi-purpose: non-data and non-product limited (can also be used as company name for general contracting, plus binding in adjacent ppl's projects like e.g. marketing-alex, or pretty much anything else, should we have to pivot..
+- multi-purpose: non-data and non-product limited -> can also be used as company name for general contracting, plus binding in adjacent ppl's projects like e.g. marketing-alex, or pretty much anything else, should we have to pivot..
+
+Other potential names for inspiration:
+- chaincontrol.cc
+- distribuworx
+- enginex
+- flowstron
+- implink
+- workfloz
+- centrynk
+- meshlynk
+- orchex
+- pipefy
+- lucidata
+- pyramesh
+- meshmatic
+- oakviz
+- goflow
+- syncord
+- centraflow
+- disflow
+- meshvent
+- dataflux
+- taskflower
+- centrall
+- coordi
+- coreflow
+- corex
+- conduit
+- plixy
+- cordex
+- distribu
+- anyflow
+- centriflux
+- hypergrid
+- flowtronic
+- luftask
+- archit
+- foxgorithm
 
 
 ## Mission:
@@ -36,7 +87,12 @@ i (thomas) have obviously a clear preference 😄 :
 - get warp
 - get orbstack
 - clone repo
-- docker-compose up
+- run docker-compose up in the project's root-dir
+- you should see 4 services booting:
+    - cerebro
+    - redis
+    - task-server-a
+    - task-server-b
 - (yet to come:) xxx run task-3
 - you should see task-server-b, which hosts task-3 to ask cerebro to run it.
 - this should trigger cerebro to run the upstream dependencies in correct order. Those taskss partially being managed by a different server (task-server-a).
