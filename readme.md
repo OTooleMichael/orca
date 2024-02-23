@@ -39,24 +39,29 @@ continuously test:
     - upon invocation command: 10 sec for "acknowledged" / "task-started"
     - upon "acknowledged": 10 min for "task-started"
     - upon "task-started": 30 min for "task-completed"
+- This framework prevents the common problem of seemingly disconnected code changes of one team, breaking downstream code of another team, as it aims to provide truly integrated testing across the whole data pipeline [generation to dashboard], and correctly identifies and notifies the responsible team.
 
 
 (there's more written down but it's too late to paste/refrac it all tonight)
 
 
-## Vocab/Lingo
+## Vocab/Lingo (or common understanding)
 - state updates vs commands
 - task state vs server state
 
-- *TASK*: COMMAND["run"] vs COMMAND["invoke"]:
+- A task-server may boot and declare itself as SERVER_STATE["ready"]
+    - right afterwards or as part of that ready-message, the server must declar what tasks it is responsible for.
+
+- COMMAND["run"] vs COMMAND["invoke"]:
 
      cerebro '*invokes*': it sends an event that tells a task-server to '*run*' a task
 
 - TASK_STATE["pending"]: cerebro has built the graph and is wating for upstream tasks to complete, before sending out a command to execute this particular task 
-- TASK_STATE["queued"]: a task-server has received a run-command from cerebro to run a task, but it's currently busy with somehting else / has not yet actually started running the task
-- TASK_STATE["started"]: a task-server has received a run-command from cerebro to run a task, and has now started running it
+- TASK_STATE["queued"]: a task-server has received an invocation-command from cerebro to run a task, but it's currently busy with somehting else / has not yet actually started running the task
+- TASK_STATE["started"]: a task-server has received an invocation-command from cerebro to run a task, and has now started running it
 - TASK_STATE["completed"]: a task-server has received a run-command from cerebro to run a task, has already reported that it has TASK_STATE["started"], and now reports TASK_STATE["completed"] after having finished the task
 TASK_STATE["error"]: there was either an error while actually processing the task OR cerebro created this event because no acknowledgement (queued/started) was given by the server within 10 sec. In the first case, the task-server's team is responsible for providing a proper description into the event
+
 
 ## what my goals are now (thomas)
 - split the servers and make it clear who comms w/ whom
@@ -72,3 +77,9 @@ TASK_STATE["error"]: there was either an error while actually processing the tas
 - found a github organization under which we can create proper repos & access rights
 - setup a minimal continuous cloud project + CI / CD
 - prevent the docker mess (volume/build-cache/images/containers) after mulit-re-building the project locally
+
+
+
+## What if ..?
+- what if cerebro is down? recoverability? missed crons?
+- what if a task-server ran half of the tasks and then reboots?
