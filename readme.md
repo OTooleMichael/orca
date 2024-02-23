@@ -10,7 +10,7 @@ i (thomas) have a clear preference:
 - memorizable like a girl's name
 - "coordination" / "core" + "dynamic"
 - brandable / unique
-- multi-purpose: non-data and non-product limited (can also be used as company name for general contracting, plus binding in adjacent ppl's projects like e.g. marketing-alex)
+- multi-purpose: non-data and non-product limited (can also be used as company name for general contracting, plus binding in adjacent ppl's projects like e.g. marketing-alex, or pretty much anything else, should we have to pivot..
 
 
 ## Mission Plan:
