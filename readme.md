@@ -1,6 +1,8 @@
 # YetAnotherProjectWithoutName
 
-i (thomas) have a clear preference:
+
+i (thomas) have obviously a clear preference 😄 :
+
 
 ![cordyna](image.png)
 
@@ -11,6 +13,17 @@ i (thomas) have a clear preference:
 - "coordination" / "core" + "dynamic"
 - brandable / unique
 - multi-purpose: non-data and non-product limited (can also be used as company name for general contracting, plus binding in adjacent ppl's projects like e.g. marketing-alex)
+
+
+## How Run?
+- (get a mac)
+- get warp
+- get orbstack
+- clone repo
+- docker-compose up
+- (yet to come:) xxx run task-3
+- you should see task-server-b, which hosts task-3 to ask cerebro to run it.
+- this should trigger cerebro to run the upstream dependencies in correct order. Those taskss partially being managed by a different server (task-server-a).
 
 
 ## Mission Plan:
