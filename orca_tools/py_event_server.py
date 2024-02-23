@@ -7,7 +7,7 @@ from threading import Lock, Thread
 from orca_tools.models import Event, EventName, EventType
 from orca_tools.redis_orca import get_connection
 
-MESSAGE_CHANNEL = "orca:events"
+MESSAGE_CHANNEL = "orca:events_TestPipe1337"  # Integration Test Channel - needs to be dynamic for prod/local_test -> hence can't be fixed here in main package
 
 def _tail_events() -> Generator[dict, None, None]:
     subpub = get_connection().pubsub()
@@ -18,8 +18,6 @@ def _tail_events() -> Generator[dict, None, None]:
             continue
         if isinstance(message["data"], str):
             yield json.loads(message["data"])
-
-
 
 
 class EventBus:
