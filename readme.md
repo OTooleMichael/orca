@@ -51,7 +51,7 @@ TASK_STATE["error"]: there was either an error while actually processing the tas
 - make the task-servers declare themselvers to cerebro
 - make it easy to cronjob a task while declaring it (e.g. 60 sec for test)
 - make it possible to ad-hoc invoke a task from outside via event
-- make it better observable what exactly happens in what server while stuff happens
+- make it better observable what exactly happens in what server and when / in what order
 - split the core tooling library from the actual task-specific stuff
 - split the core tooling library from cerebro
 - properly package the core tooling library
