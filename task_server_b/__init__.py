@@ -26,5 +26,6 @@ server = Server(
 def main() -> None:
     server.start()
 
+
 if __name__ == "__main__":
     main()

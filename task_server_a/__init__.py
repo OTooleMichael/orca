@@ -1,23 +1,23 @@
 from orca_tools.task_server_utils import Server, task, emitter
 
 
-@task(upstream_tasks=["task_a", "task_c", "task_d"])
+@task(upstream_tasks=["task_c", "task_b", "task_d"])
 def task_a() -> None:
     print("Task A")
 
 
-@task(upstream_tasks=["task_a"])
+@task(upstream_tasks=["task_c"])
 def task_b() -> None:
     print("Task B")
 
 
-@task()
+@task(complete_check=lambda: True)
 def task_c() -> None:
     print("Task C")
 
 
 @task()
-def task_d(upstream_tasks=["task_a", "task_b", "task_c"]) -> None:
+def task_d() -> None:
     print("Task D")
 
 
@@ -32,8 +32,10 @@ server = Server(
     emitter=emitter,
 )
 
+
 def main() -> None:
     server.start()
+
 
 if __name__ == "__main__":
     main()

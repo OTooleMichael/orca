@@ -115,7 +115,7 @@ class Cerebro:
             case (EventName.task_state, _):
                 self._handle_task_state(event, _)
                 return
-            case (EventName.run_task, EventType.request):
+            case (EventName.user_run_task, EventType.request):
                 try:
                     run_fn = self.create_run(event.task_matcher)
                     run_fn()

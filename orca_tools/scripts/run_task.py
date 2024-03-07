@@ -1,7 +1,7 @@
 import sys
 from functools import partial
 
-from orca_tools.models import EventName, Event
+from orca_tools.models import EventName, Event, EventType
 from orca_tools.py_event_server import EventBus, emitter
 
 
@@ -22,7 +22,7 @@ if __name__ == "__main__":
         Event(
             task_matcher=task_name,
             name=EventName.user_run_task,
-            event_type="request",
+            event_type=EventType.request,
             source_server_id=":user",
         ),
     )
