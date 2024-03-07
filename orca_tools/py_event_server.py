@@ -42,7 +42,6 @@ class EventBus:
             if event.event_epoch <= started_at:
                 continue
 
-            print(event)
             if callback(event, self):
                 break
 

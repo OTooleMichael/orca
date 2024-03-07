@@ -1,3 +1,5 @@
+import time
+
 from orca_tools.task_server_utils import Server, task, emitter
 
 
@@ -19,6 +21,8 @@ def task_c() -> None:
 @task()
 def task_d() -> None:
     print("Task D")
+    time.sleep(5)
+    print("Task D done")
 
 
 server = Server(

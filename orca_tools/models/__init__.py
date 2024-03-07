@@ -18,6 +18,7 @@ STATES = [
 
 RunableType = Callable[[], None]
 
+
 @dataclass
 class Task:
     name: str
@@ -35,7 +36,8 @@ class Task:
             return self.complete_check()
 
         return False
-    
+
+
 def task(
     func: RunableType | None = None,
     *,
@@ -59,14 +61,17 @@ def task(
 
     return _decorator
 
+
 class EventType(Enum):
     event = "event"
     request = "request"
     response = "response"
 
+
 class State(Enum):
     ready = "ready"
     pending = "pending"
+    waiting = "waiting"
     started = "started"
     completed = "completed"
     failed = "failed"
@@ -75,7 +80,13 @@ class State(Enum):
     na = "na"
 
     def is_terminal(self) -> bool:
-        return self in (State.completed, State.failed, State.already_complete, State.failed_upstream)
+        return self in (
+            State.completed,
+            State.failed,
+            State.already_complete,
+            State.failed_upstream,
+        )
+
 
 class EventName(Enum):
     user_run_task = "user_run_task"
@@ -99,11 +110,11 @@ class Event(BaseModel):
     state: State = State.na
     payload: dict = Field(default_factory=dict)
     event_epoch: int = Field(default_factory=lambda: int(time.time() * 1000))
-    event_id: str = Field(default_factory=lambda : orca_id("ev"))
+    event_id: str = Field(default_factory=lambda: orca_id("ev"))
 
     @property
     def event_at(self) -> datetime:
-        return datetime.fromtimestamp(self.event_epoch/1000, tz=UTC)
+        return datetime.fromtimestamp(self.event_epoch / 1000, tz=UTC)
 
     def __repr__(self) -> str:
         return f"<Ev {self.name}, {self.state}, {self.task_matcher}>"

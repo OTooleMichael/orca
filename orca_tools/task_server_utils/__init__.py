@@ -4,6 +4,8 @@ from collections.abc import Callable
 from orca_tools.models import EventName, EventType, State, Task, RunableType
 from orca_tools.py_event_server import Event, EventBus, emitter
 from orca_tools.utils import orca_id
+
+
 def task(
     func: RunableType | None = None,
     *,
@@ -59,11 +61,12 @@ class Server:
         self.emitter.publish(
             Event(
                 task_matcher="",
-                name="server_state",
+                name=EventName.server_state,
                 state=State.ready,
                 source_server_id=self.name,
             ),
         )
+        print(f"Server {self.name} is ready")
 
     def describe(self) -> None:
         for task in self.tasks:
