@@ -3,6 +3,7 @@ services:
   cerebro:
     depends_on:
       - redis
+    command: ["sh", "./starter.sh", "cerebro/__init__.py"]
     build:
       context: .
       dockerfile: ./cerebro/Dockerfile
@@ -17,6 +18,7 @@ services:
     depends_on:
       - redis
       - cerebro
+    command: ["sh", "./starter.sh", "task_server_a/__init__.py"]
     build:
       context: .
       dockerfile: ./task_server_a/Dockerfile
@@ -31,6 +33,7 @@ services:
     depends_on:
       - redis
       - cerebro
+    command: ["sh", "./starter.sh", "task_server_a/__init__.py"]
     build:
       context: .
       dockerfile: ./task_server_b/Dockerfile

@@ -1,8 +1,8 @@
 import sys
 from functools import partial
 
-from cerebro.models import EventName
-from cerebro.py_event_server import Event, EventBus, emitter
+from orca_tools.models import EventName, Event
+from orca_tools.py_event_server import EventBus, emitter
 
 
 def _waiter(event: Event, _: EventBus, target_task: str) -> bool:
@@ -15,6 +15,7 @@ def _waiter(event: Event, _: EventBus, target_task: str) -> bool:
         print("Finished!!")
     return is_finised
 
+
 if __name__ == "__main__":
     task_name = sys.argv[1]
     emitter.publish(
@@ -26,6 +27,3 @@ if __name__ == "__main__":
         ),
     )
     emitter.subscribe_thread(partial(_waiter, target_task=task_name))
-
-
-

@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 from orca_tools.models import EventName, EventType, State, Task
 from orca_tools.py_event_server import Event, EventBus, emitter
-
+from orca_tools.utils import orca_id
 
 
 @dataclass
@@ -40,7 +40,9 @@ class Waiter:
         with self.thread_lock:
             if not self._original_upstream_tasks:
                 self._original_upstream_tasks = self.upstream_tasks
-            self.upstream_tasks = [task for task in self.upstream_tasks if task != event.task_matcher]
+            self.upstream_tasks = [
+                task for task in self.upstream_tasks if task != event.task_matcher
+            ]
 
         if not self.upstream_tasks:
             self._is_dead = True
@@ -48,16 +50,17 @@ class Waiter:
             return True
         return False
 
+
 class Cerebro:
     emitter: EventBus
     server_name: str = "cerebro"
 
     def __init__(self, emitter: EventBus) -> None:
         self.emitter = emitter
-        self.tasks: dict[str, str]= {}
-        self.task_state: dict[str, Event]= {}
+        self.tasks: dict[str, str] = {}
+        self.task_state: dict[str, Event] = {}
         self.thread_lock = Lock()
-        self.graph: dict[str, list[str]]= {}
+        self.graph: dict[str, list[str]] = {}
 
     def _clean_task_states(self) -> None:
         del_keys: list[str] = []
@@ -73,7 +76,7 @@ class Cerebro:
                 del self.task_state[key]
 
     def start(self) -> None:
-        self.emitter.subscribe_thread(self._handle_server_describe, "testing_event_thread")
+        self.emitter.subscribe_thread(self._handler, "testing_event_thread")
         time.sleep(1)
         self.emitter.publish(
             Event(
@@ -95,36 +98,40 @@ class Cerebro:
         for upstream_task in task.upstream_tasks:
             self._graph_edge(task.name, upstream_task)
 
+    def _handle_task_state(self, event: Event, _: EventBus) -> None:
+        if event.state in (State.na,):
+            return
+        with self.thread_lock:
+            self.task_state[event.task_matcher] = event
+        self._clean_task_states()
+        return
 
-    def _handle_server_describe(self, event: Event, _: EventBus) -> None:
+    def _handler(self, event: Event, _: EventBus) -> None:
         if event.source_server_id == self.server_name:
             return
+        print("Cerebro", event.name, event.event_type)
 
-        if event.name == EventName.task_state:
-            if event.state in (State.na,):
+        match (event.name, event.event_type):
+            case (EventName.task_state, _):
+                self._handle_task_state(event, _)
                 return
-            with self.thread_lock:
-                self.task_state[event.task_matcher] = event
-            self._clean_task_states()
-            return
-
-        if event.name == EventName.user_run_task and event.event_type == EventType.request:
-            try:
-                run_fn = self.create_run(event.task_matcher)
-                run_fn()
-            except Exception as e:
-                print(e)
-            return
-
-        if (event.name, event.event_type) == (EventName.describe_server, EventType.response):
-            task = Task(
-                name=event.task_matcher,
-                downstream_tasks=event.payload["downstream_tasks"],
-                upstream_tasks=event.payload["upstream_tasks"],
-            )
-            self._add_task(task, event.source_server_id)
-            return
-        return
+            case (EventName.run_task, EventType.request):
+                try:
+                    run_fn = self.create_run(event.task_matcher)
+                    run_fn()
+                except Exception as e:
+                    print(e)
+                return
+            case (EventName.describe_server, EventType.response):
+                task = Task(
+                    name=event.task_matcher,
+                    downstream_tasks=event.payload["downstream_tasks"],
+                    upstream_tasks=event.payload["upstream_tasks"],
+                )
+                self._add_task(task, event.source_server_id)
+                return
+            case _:
+                return
 
     def get_task_state(self, task_name: str) -> State:
         with self.thread_lock:
@@ -132,7 +139,7 @@ class Cerebro:
         return event.state if event else State.pending
 
     def build_subgraph(self, task_name: str) -> list[tuple[str, str | None]]:
-        connections: list[tuple[str, str | None]]= []
+        connections: list[tuple[str, str | None]] = []
         subgraph_items = []
         to_visit = [task_name]
         while to_visit:
@@ -164,14 +171,18 @@ class Cerebro:
                 continue
             visited.append(current_task)
             task_state = self.get_task_state(current_task)
-            is_completed = task_state.is_terminal() or self.emitter.request(
-                Event(
-                    task_matcher=current_task,
-                    name=EventName.task_complete,
-                    event_type=EventType.request,
-                    source_server_id=self.server_name,
-                ),
-            ).payload.get("complete") or False
+            is_completed = (
+                task_state.is_terminal()
+                or self.emitter.request(
+                    Event(
+                        task_matcher=current_task,
+                        name=EventName.task_complete,
+                        event_type=EventType.request,
+                        source_server_id=self.server_name,
+                    ),
+                ).payload.get("complete")
+                or False
+            )
             if is_completed:
                 already_completed.append(current_task)
                 continue
@@ -207,6 +218,7 @@ class Cerebro:
                         source_server_id=self.server_name,
                     ),
                 )
+
         return execute_tree
 
 
@@ -214,9 +226,11 @@ cerebro = Cerebro(
     emitter=emitter,
 )
 
+
 def main() -> None:
     cerebro.start()
     print("Cerebro Listening")
+
 
 if __name__ == "__main__":
     main()

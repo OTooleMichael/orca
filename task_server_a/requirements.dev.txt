@@ -8,6 +8,7 @@ types-urllib3==1.26.25.13
 typing_extensions==4.6.3
 types-pytz==2023.3.0.0
 types-setuptools==68.0.0.0
+watchdog[watchmedo]==3.0.0
 # others
 pytest == 7.4.0
 pytest-xdist==3.3.1
