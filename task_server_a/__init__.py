@@ -1,6 +1,7 @@
 import time
 
-from orca_tools.task_server_utils import Server, task, emitter
+from orca_tools.task_server_utils import Server, emitter
+from orca_tools.models import task
 
 
 @task(upstream_tasks=["task_c", "task_b", "task_d"])

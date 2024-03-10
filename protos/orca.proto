@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+
+enum TaskState {
+  NA = 0;
+  IDLE = 1;
+  WAITING = 2;
+  COMPLETED = 4;
+  FAILED = 5;
+  ALREADY_COMPLETED = 6;
+  FAILED_UPSTREAM = 7;
+  STARTED = 8;
+}
+
+enum ServerState {
+  READY = 0;
+}
+
+
+message EventCore {
+  string event_id = 1;
+  string source_server_id = 2;
+  google.protobuf.Timestamp event_at = 3;
+  string task_name = 4;
+  TaskState state = 5;
+  string request_id = 6;
+}
+
+message UserRunTaskEvent {
+  EventCore event = 1;
+}
+
+message TaskStateEvent {
+  EventCore event = 1;
+}
+
+message TaskCompleteReq {
+  string task_name = 1;
+  EventCore event = 2;
+}
+
+message TaskCompleteRes {
+  string task_name = 1;
+  TaskState state = 2;
+  EventCore event = 3;
+}
+
+message RunTaskEvent {
+    string task_name = 1;
+    EventCore event = 2;
+}
+
+message ServerStateEvent {
+  EventCore event = 1;
+  ServerState state = 2;
+}
+
+message Task {
+    string name = 1;
+    repeated string downstream_tasks = 2;
+    repeated string upstream_tasks = 3;
+}
+
+message DescribeServerReq{
+    EventCore event = 1;
+    string source_server_id = 2;
+}
+
+message DescribeServerRes{
+    EventCore event = 1;
+    Task task = 2;
+}

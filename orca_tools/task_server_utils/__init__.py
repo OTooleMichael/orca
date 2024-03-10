@@ -1,33 +1,9 @@
 from dataclasses import dataclass, field
-from collections.abc import Callable
-
-from orca_tools.models import EventName, EventType, State, Task, RunableType
-from orca_tools.py_event_server import Event, EventBus, emitter
+from orca_tools.models import Task
+from orca_tools.py_event_server import EventBus, emitter
+from orca_tools.protos import Event
 from orca_tools.utils import orca_id
-
-
-def task(
-    func: RunableType | None = None,
-    *,
-    name: str | None = None,
-    downstream_tasks: list[str] | None = None,
-    upstream_tasks: list[str] | None = None,
-    complete_check: Callable[[], bool] | None = None,
-) -> Callable:
-    if func and callable(func):
-        return task()(func)
-
-    def _decorator(func: RunableType) -> Task:
-        _name = name or func.__name__
-        return Task(
-            name=_name,
-            run=func,
-            downstream_tasks=downstream_tasks or [],
-            upstream_tasks=upstream_tasks or [],
-            complete_check=complete_check,
-        )
-
-    return _decorator
+from generated_grpc import orca_pb2 as pb2, orca_enums
 
 
 @dataclass
@@ -39,48 +15,44 @@ class Server:
     server_id: str = field(default_factory=lambda: orca_id("server"))
 
     def _handle_event(self, event: Event, _: EventBus) -> None:
-        if event.source_server_id == self.name:
+        if event.event.source_server_id == self.name:
             return None
+        if isinstance(event, pb2.DescribeServerReq):
+            self.describe()
+            return None
+        if isinstance(event, pb2.RunTaskEvent):
+            self.run_task(event.task_name)
+            return None
+        if isinstance(event, pb2.TaskCompleteReq):
+            self.check_task_complete(event.task_name)
+            return None
+        return None
 
-        match (event.name, event.event_type):
-            case (EventName.run_task, EventType.request):
-                return self.run_task(event.task_matcher)
-            case (EventName.task_complete, EventType.request):
-                self.check_task_complete(event.task_matcher)
-                return None
-            case (EventName.describe_server, EventType.request):
-                self.describe()
-                return None
-            case _:
-                return None
+    def _publish(self, event: Event) -> None:
+        event.MergeFrom(event.__class__(event=event.event or pb2.EventCore()))  # type: ignore
+        event.event.MergeFrom(
+            pb2.EventCore(
+                event_id=event.event.event_id or orca_id("evt"),
+                source_server_id=self.server_id,
+            )
+        )
+        self.emitter.publish(event)
 
     def start(self) -> None:
-        # subscribe self.handle_event to the emitter on a new thread
         self.emitter.subscribe_thread(self._handle_event)
         self.describe()
-        self.emitter.publish(
-            Event(
-                task_matcher="",
-                name=EventName.server_state,
-                state=State.ready,
-                source_server_id=self.name,
-            ),
+        self._publish(
+            pb2.ServerStateEvent(
+                event=pb2.EventCore(),
+                state=orca_enums.ServerState.READY.to_grpc(),
+            )
         )
         print(f"Server {self.name} is ready")
 
     def describe(self) -> None:
         for task in self.tasks:
-            self.emitter.publish(
-                Event(
-                    task_matcher=task.name,
-                    name="describe_server",
-                    event_type=EventType.response,
-                    source_server_id=self.name,
-                    payload={
-                        "upstream_tasks": task.upstream_tasks,
-                        "downstream_tasks": task.downstream_tasks,
-                    },
-                ),
+            self._publish(
+                pb2.DescribeServerRes(task=task.to_pb(), event=pb2.EventCore())
             )
 
     def get_task(self, name: str) -> Task | None:
@@ -92,37 +64,41 @@ class Server:
             return
 
         self._states[name] = "running"
-        self.emitter.publish(
-            Event(
-                task_matcher=name,
-                name=EventName.task_state,
-                state=State.started,
-                source_server_id=self.name,
-            ),
+        self._publish(
+            pb2.TaskStateEvent(
+                event=pb2.EventCore(
+                    task_name=name,
+                    state=orca_enums.TaskState.STARTED.to_grpc(),
+                )
+            )
         )
         task()
         del self._states[name]
-        self.emitter.publish(
-            Event(
-                task_matcher=name,
-                name=EventName.task_state,
-                state=State.completed,
-                source_server_id=self.name,
-            ),
+        self._publish(
+            pb2.TaskStateEvent(
+                event=pb2.EventCore(
+                    task_name=name,
+                    state=orca_enums.TaskState.COMPLETED.to_grpc(),
+                )
+            )
         )
 
     def check_task_complete(self, name: str) -> bool:
         task = self.get_task(name)
-        if task:
-            complete = task.is_complete()
-            self.emitter.publish(
-                Event(
-                    task_matcher=name,
-                    name=EventName.task_complete,
-                    event_type=EventType.response,
-                    source_server_id=self.name,
-                    payload={"complete": complete},
+        if not task:
+            return False
+        complete = task.is_complete()
+        self._publish(
+            pb2.TaskCompleteRes(
+                task_name=name,
+                event=pb2.EventCore(
+                    task_name=name,
                 ),
+                state=(
+                    orca_enums.TaskState.COMPLETED
+                    if complete
+                    else orca_enums.TaskState.IDLE
+                ).to_grpc(),
             )
-
+        )
         return False

@@ -1,23 +1,10 @@
 import redis
 
 
-def get_connection() -> redis.Redis:
+def get_connection(*, should_decode: bool = True) -> redis.Redis:
     return redis.Redis(
         host="redis",
         port=6379,
         db=0,
-        decode_responses=True,
+        decode_responses=should_decode,
     )
-
-
-
-
-def main() -> None:
-    conn = get_connection()
-    conn.set("key", "value")
-    print(conn.get("key"))
-    conn.delete("key")
-    print(conn.get("key"))
-
-if __name__ == "__main__":
-    main()

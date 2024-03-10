@@ -1,32 +1,35 @@
-import json
 import time
+import redis
 from collections.abc import Callable, Generator
-from functools import partial
 from threading import Lock, Thread
+from functools import cached_property
 
-from orca_tools.models import Event, EventName, EventType
+from orca_tools.protos import decode_event, Event, encode_event
 from orca_tools.redis_orca import get_connection
+from generated_grpc import orca_pb2 as pb2
 
 MESSAGE_CHANNEL = "orca:events_TestPipe1337"  # Integration Test Channel - needs to be dynamic for prod/local_test -> hence can't be fixed here in main package
 
 
-def _tail_events() -> Generator[dict, None, None]:
-    subpub = get_connection().pubsub()
+def _tail_events() -> Generator[Event, None, None]:
+    subpub = get_connection(should_decode=False).pubsub()
     subpub.subscribe(MESSAGE_CHANNEL)
     for message in subpub.listen():
         if message["type"] != "message":
             continue
-        if isinstance(message["data"], str):
-            yield json.loads(message["data"])
+        if isinstance(message["data"], (bytes,)):
+            yield decode_event(message["data"])
 
 
 class EventBus:
-    Event = Event
-
     _subscribers: list[Callable[[Event, "EventBus"], None | bool]]
 
     def __init__(self) -> None:
         self.thread_lock = Lock()
+
+    @cached_property
+    def connection(self) -> redis.Redis:
+        return get_connection()
 
     def _subscribe(
         self, callback: Callable[[Event, "EventBus"], None | bool], sub_name: str | None
@@ -35,11 +38,11 @@ class EventBus:
         if sub_name:
             print("BIRTH", sub_name)
 
-        for data_dict in _tail_events():
+        for event in _tail_events():
             if sub_name:
-                print(sub_name, data_dict)
-            event = Event(**data_dict)
-            if event.event_epoch <= started_at:
+                print(sub_name, event)
+            _event: pb2.EventCore = event.event
+            if _event.event_at.ToMilliseconds() <= started_at:
                 continue
 
             if callback(event, self):
@@ -60,47 +63,7 @@ class EventBus:
         thread.start()
 
     def publish(self, event: Event) -> None:
-        redis = get_connection()
-        redis.publish(MESSAGE_CHANNEL, event.model_dump_json())
-
-    def request(self, event: Event) -> Event:
-        state = {"res": None}
-        callback = partial(
-            _updater,
-            task_matcher=event.task_matcher,
-            event_name=event.name,
-            state=state,
-        )
-        self.subscribe_thread(callback, f"request:{event.name}")
-        emitter.publish(event)
-        waited_for: float = 0
-        wait_interval = 0.1
-        max_wait = 60 * 1
-        while state["res"] is None:
-            if waited_for > max_wait:
-                raise TimeoutError(f"Waited for {max_wait} seconds")
-            time.sleep(wait_interval)
-            waited_for += wait_interval
-
-        res = state["res"]
-        assert res
-
-        return res
-
-
-def _updater(
-    event: Event,
-    _: EventBus,
-    task_matcher: str,
-    event_name: str | EventName,
-    state: dict,
-) -> bool:
-    if event.event_type != EventType.response:
-        return False
-    if (event.task_matcher, event.name) == (task_matcher, event_name):
-        state["res"] = event
-        return True
-    return False
+        self.connection.publish(MESSAGE_CHANNEL, encode_event(event))
 
 
 emitter = EventBus()

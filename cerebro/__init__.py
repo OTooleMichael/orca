@@ -6,9 +6,11 @@ from dataclasses import dataclass, field
 from contextlib import contextmanager
 from typing import ContextManager
 
-from orca_tools.models import EventName, EventType, State, Task
-from orca_tools.py_event_server import Event, EventBus, emitter
+from orca_tools.models import Task
+from orca_tools.py_event_server import EventBus, emitter
 from orca_tools.utils import orca_id
+from orca_tools.protos import Event, is_terminal_state
+from generated_grpc import orca_pb2 as pb2, orca_enums
 
 
 @dataclass
@@ -40,22 +42,18 @@ class DagRun:
             yield
             self._has_lock = False
 
-    def handle_event(self, event: Event, emitter: EventBus) -> None:
-        if event.task_matcher not in self._pending_completeness_check:
+    def handle_event(self, event: pb2.TaskCompleteRes, emitter: EventBus) -> None:
+        task_name = event.event.task_name
+        if task_name not in self._pending_completeness_check:
             return
 
-        if (event.name, event.event_type) != (
-            EventName.task_complete,
-            EventType.response,
-        ):
-            return
         with self.lock():
             self._complete_event(event, emitter)
 
-    def _complete_event(self, event: Event, emitter) -> None:
-        task_name = event.task_matcher
+    def _complete_event(self, event: pb2.TaskCompleteRes, emitter) -> None:
+        task_name = event.event.task_name
         self._pending_completeness_check.remove(task_name)
-        is_completed = event.payload.get("complete") or False
+        is_completed = event.state == orca_enums.TaskState.COMPLETED
         if is_completed:
             self.already_completed.append(task_name)
             return self.build(emitter)
@@ -66,12 +64,14 @@ class DagRun:
         with self.lock():
             self._pending_completeness_check.append(task_name)
         emitter.publish(
-            Event(
-                task_matcher=task_name,
-                name=EventName.task_complete,
-                event_type=EventType.request,
-                source_server_id="",
-            ),
+            pb2.TaskCompleteReq(
+                task_name=task_name,
+                event=pb2.EventCore(
+                    event_id=orca_id("event"),
+                    source_server_id="cerebro",
+                    task_name=task_name,
+                ),
+            )
         )
 
     def build(self, emitter: EventBus) -> None:
@@ -82,15 +82,15 @@ class DagRun:
             task_state = self.cerebro.get_task_state(
                 current_task, has_lock=self._has_lock
             )
-            if task_state == State.waiting:
+            if task_state == orca_enums.TaskState.WAITING:
                 continue
 
-            is_completed = task_state.is_terminal()
+            is_completed = is_terminal_state(task_state)
             if is_completed:
                 self.already_completed.append(current_task)
                 continue
 
-            if task_state not in (State.pending,):
+            if task_state not in (orca_enums.TaskState.IDLE,):
                 continue
             self._start_waiting(current_task, emitter)
 
@@ -105,7 +105,7 @@ class DagRun:
             return
 
         if not self.cerebro.waiters.get(task_name):
-            waiter = Waiter(task_name, upstream_tasks, self.cerebro.thread_lock)
+            waiter = Waiter(task_name, set(upstream_tasks), self.cerebro.thread_lock)
             self.cerebro.waiters[task_name] = waiter
         self.to_visit.extend(upstream_tasks)
 
@@ -117,21 +117,25 @@ class DagRun:
             return
         self._running = True
         for current_task in set(self.already_completed):
-            emitter.publish(
-                Event(
-                    task_matcher=current_task,
-                    name=EventName.task_state,
-                    state=State.already_complete,
-                    source_server_id="",
-                ),
+            ac_event = pb2.TaskStateEvent(
+                event=pb2.EventCore(
+                    event_id=orca_id("event"),
+                    source_server_id="cerebro",
+                    task_name=current_task,
+                    state=pb2.ALREADY_COMPLETED,
+                )
             )
+            emitter.publish(ac_event)
+            self.cerebro._handler(ac_event, emitter)
         for task_name in set(self.base_tasks):
             emitter.publish(
-                Event(
-                    task_matcher=task_name,
-                    name=EventName.run_task,
-                    event_type=EventType.request,
-                    source_server_id="",
+                pb2.RunTaskEvent(
+                    task_name=task_name,
+                    event=pb2.EventCore(
+                        event_id=orca_id("event"),
+                        source_server_id="cerebro",
+                        task_name=task_name,
+                    ),
                 ),
             )
 
@@ -139,38 +143,41 @@ class DagRun:
 @dataclass
 class Waiter:
     task_name: str
-    upstream_tasks: list[str]
+    upstream_tasks: set[str]
     thread_lock: Callable[[], ContextManager[None]]
     waiter_id: str = field(default_factory=lambda: orca_id("waiter"))
     _is_dead: bool = False
-    _original_upstream_tasks: list[str] = field(init=False, default_factory=list)
+    _original_upstream_tasks: set[str] = field(init=False, default_factory=set)
 
     def run(self, emitter: EventBus) -> None:
         emitter.publish(
-            Event(
-                task_matcher=self.task_name,
-                name=EventName.run_task,
-                event_type=EventType.request,
-                source_server_id="orca",
+            pb2.RunTaskEvent(
+                task_name=self.task_name,
+                event=pb2.EventCore(
+                    event_id=orca_id("event"),
+                    source_server_id="cerebro",
+                    task_name=self.task_name,
+                ),
             ),
         )
 
-    def handle(self, event: Event, emitter: EventBus) -> bool:
+    def handler(self, event: pb2.TaskStateEvent, emitter: EventBus) -> bool:
         if self._is_dead:
             return True
 
-        if event.name != EventName.task_state or not event.state.is_terminal():
+        if not is_terminal_state(event.event.state):
             return False
 
-        if event.task_matcher not in self.upstream_tasks:
+        task_name = event.event.task_name
+        if task_name not in self.upstream_tasks:
             return False
 
         with self.thread_lock():
             if not self._original_upstream_tasks:
                 self._original_upstream_tasks = self.upstream_tasks
-            self.upstream_tasks = [
-                task for task in self.upstream_tasks if task != event.task_matcher
-            ]
+            self.upstream_tasks = {
+                task for task in self.upstream_tasks if task != task_name
+            }
 
         if not self.upstream_tasks:
             self._is_dead = True
@@ -191,7 +198,7 @@ class Cerebro:
         self.dag_runs = {}
         self.waiters = {}
         self.tasks: dict[str, str] = {}
-        self.task_state: dict[str, Event] = {}
+        self.task_state: dict[str, pb2.TaskStateEvent] = {}
         self._thread_lock = Lock()
         self.graph: dict[str, list[str]] = {}
 
@@ -205,13 +212,13 @@ class Cerebro:
         print("RELEASING LOCK", caller)
 
     def publish(self, event: Event) -> None:
-        event.source_server_id = self.server_name
+        event.event.source_server_id = self.server_name
         self.emitter.publish(event)
 
     def _clean_task_states(self) -> None:
         del_keys: list[str] = []
         for key, event in self.task_state.items():
-            if event.state.is_terminal():
+            if is_terminal_state(event.event.state):
                 del_keys.append(key)
 
         if not del_keys:
@@ -224,12 +231,12 @@ class Cerebro:
     def start(self) -> None:
         self.emitter.subscribe_thread(self._handler)
         time.sleep(1)
-        self.emitter.publish(
-            Event(
-                task_matcher="",
-                name=EventName.describe_server,
-                event_type=EventType.request,
-                source_server_id=self.server_name,
+        self.publish(
+            pb2.DescribeServerReq(
+                event=pb2.EventCore(
+                    event_id=orca_id("event"),
+                    task_name="",
+                )
             ),
         )
 
@@ -244,58 +251,60 @@ class Cerebro:
         for upstream_task in task.upstream_tasks:
             self._graph_edge(task.name, upstream_task)
 
-    def _handle_task_state(self, event: Event, _: EventBus) -> None:
-        if event.state in (State.na,):
+    def _handle_task_state(self, event: pb2.TaskStateEvent, _: EventBus) -> None:
+        if orca_enums.TaskState.from_grpc(event.event.state) in (
+            orca_enums.TaskState.NA,
+        ):
             return
         for task_name, waiter in list(self.waiters.items()):
-            if waiter.handle(event, emitter):
+            if waiter.handler(event, emitter):
                 self.waiters.pop(task_name, None)
 
         with self.thread_lock():
-            self.task_state[event.task_matcher] = event
+            self.task_state[event.event.task_name] = event
         self._clean_task_states()
         return
 
     def _handler(self, event: Event, emitter: EventBus) -> None:
-        if event.source_server_id == self.server_name:
+        if isinstance(event, pb2.DescribeServerRes):
+            self._add_task(
+                Task.from_pb(event.task),
+                event.event.source_server_id,
+            )
             return
+        if isinstance(event, pb2.TaskStateEvent):
+            self._handle_task_state(event, emitter)
+            return
+        if isinstance(event, pb2.TaskCompleteRes):
+            for key, run in list(self.dag_runs.items()):
+                run.handle_event(event, emitter)
+                if run.is_ready:
+                    print("RUNNING TREE", run.task_name)
+                    run.execute_tree(emitter)
+                    self.dag_runs.pop(key, None)
+            return
+        if isinstance(event, pb2.UserRunTaskEvent):
+            task_name = event.event.task_name
+            if dag := self.create_run(task_name):
+                dag.build(emitter)
+            return
+        print("UNKNOWN EVENT", event.DESCRIPTOR.name, event)
+        return
 
-        match (event.name, event.event_type):
-            case (EventName.task_state, _):
-                self._handle_task_state(event, emitter)
-                return
-            case (EventName.task_complete, EventType.response):
-                for key, run in list(self.dag_runs.items()):
-                    run.handle_event(event, emitter)
-                    if run.is_ready:
-                        print("RUNNING TREE", run.task_name)
-                        run.execute_tree(emitter)
-                        self.dag_runs.pop(key, None)
-
-                return
-            case (EventName.user_run_task, EventType.request):
-                if dag := self.create_run(event.task_matcher):
-                    dag.build(emitter)
-                return
-            case (EventName.describe_server, EventType.response):
-                task = Task(
-                    name=event.task_matcher,
-                    downstream_tasks=event.payload["downstream_tasks"],
-                    upstream_tasks=event.payload["upstream_tasks"],
-                )
-                self._add_task(task, event.source_server_id)
-                return
-            case _:
-                return
-
-    def get_task_state(self, task_name: str, has_lock: bool = False) -> State:
+    def get_task_state(
+        self, task_name: str, has_lock: bool = False
+    ) -> orca_enums.TaskState:
         if not has_lock:
             with self.thread_lock():
                 return self.get_task_state(task_name, has_lock=True)
         if task_name in self.waiters:
-            return State.waiting
+            return orca_enums.TaskState.WAITING
         event = self.task_state.get(task_name)
-        return event.state if event else State.pending
+        return (
+            orca_enums.TaskState.from_grpc(event.event.state)
+            if event
+            else orca_enums.TaskState.IDLE
+        )
 
     def build_subgraph(self, task_name: str) -> list[tuple[str, str | None]]:
         connections: list[tuple[str, str | None]] = []
