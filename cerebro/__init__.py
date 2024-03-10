@@ -1,5 +1,6 @@
 from collections.abc import Callable, Generator
-import inspect
+
+# import inspect
 import time
 from threading import Lock
 from dataclasses import dataclass, field
@@ -205,11 +206,9 @@ class Cerebro:
     @contextmanager
     def thread_lock(self) -> Generator[None, None, None]:
         # print the calling function server_name
-        caller = [el[3] for el in inspect.stack()[1:5]]
-        print("GETTING LOCK", caller)
+        # caller = [el[3] for el in inspect.stack()[1:5]]
         with self._thread_lock:
             yield
-        print("RELEASING LOCK", caller)
 
     def publish(self, event: Event) -> None:
         event.event.source_server_id = self.server_name

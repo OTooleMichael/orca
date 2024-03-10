@@ -18,7 +18,7 @@ class PlaceholderEnumtype(Enum):
         return pb2.PlaceholderEnumtype.Value(self.value)  # type: ignore
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, pb2.PlaceholderEnumtype):
+        if isinstance(other, int):
             return self.value == self.from_grpc(other).value
         if isinstance(other, PlaceholderEnumtype):
             return self.value == other.value
