@@ -68,7 +68,7 @@ class Server:
             pb2.TaskStateEvent(
                 event=pb2.EventCore(
                     task_name=name,
-                    state=orca_enums.TaskState.STARTED.to_grpc(),
+                    state=orca_enums.TaskState.pb().STARTED,
                 )
             )
         )
@@ -78,7 +78,7 @@ class Server:
             pb2.TaskStateEvent(
                 event=pb2.EventCore(
                     task_name=name,
-                    state=orca_enums.TaskState.COMPLETED.to_grpc(),
+                    state=orca_enums.TaskState.pb().COMPLETED,
                 )
             )
         )
@@ -98,7 +98,7 @@ class Server:
                     orca_enums.TaskState.COMPLETED
                     if complete
                     else orca_enums.TaskState.IDLE
-                ).to_grpc(),
+                ).to_pb(),
             )
         )
         return False
