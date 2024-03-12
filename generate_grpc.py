@@ -15,6 +15,10 @@ class PlaceholderEnumtype(Enum):
     def pb() -> type[PlaceholderEnumtypeInt]:
         return PlaceholderEnumtypeInt
 
+    @staticmethod
+    def pb2_class() -> type[pb2.PlaceholderEnumtype]:
+        return pb2.PlaceholderEnumtype
+
     @classmethod
     def from_grpc(cls, el: pb2.PlaceholderEnumtype) -> "PlaceholderEnumtype":
         return cls(cls.pb2_class().Name(el))  # type: ignore

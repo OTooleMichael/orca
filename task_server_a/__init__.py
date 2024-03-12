@@ -22,7 +22,7 @@ def task_c() -> None:
 @task()
 def task_d() -> None:
     print("Task D")
-    time.sleep(5)
+    time.sleep(2)
     print("Task D done")
 
 

@@ -287,6 +287,8 @@ class Cerebro:
             if dag := self.create_run(task_name):
                 dag.build(emitter)
             return
+        if event.event.source_server_id == self.server_name:
+            return
         print("UNKNOWN EVENT", event.DESCRIPTOR.name, event)
         return
 

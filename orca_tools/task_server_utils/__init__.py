@@ -33,9 +33,10 @@ class Server:
         event.event.MergeFrom(
             pb2.EventCore(
                 event_id=event.event.event_id or orca_id("evt"),
-                source_server_id=self.server_id,
+                source_server_id=":".join([self.name, self.server_id]),
             )
         )
+        print(event)
         self.emitter.publish(event)
 
     def start(self) -> None:
@@ -64,6 +65,7 @@ class Server:
             return
 
         self._states[name] = "running"
+        print(f"Running task {name}")
         self._publish(
             pb2.TaskStateEvent(
                 event=pb2.EventCore(
@@ -73,6 +75,7 @@ class Server:
             )
         )
         task()
+        print(f"finished task {name}")
         del self._states[name]
         self._publish(
             pb2.TaskStateEvent(

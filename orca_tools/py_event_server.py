@@ -55,12 +55,13 @@ class EventBus:
         self,
         callback: Callable[[Event, "EventBus"], None | bool],
         sub_name: str | None = None,
-    ) -> None:
+    ) -> Thread:
         thread = Thread(
             target=self._subscribe,
             args=(callback, sub_name),
         )
         thread.start()
+        return thread
 
     def publish(self, event: Event) -> None:
         self.connection.publish(MESSAGE_CHANNEL, encode_event(event))
