@@ -10,9 +10,9 @@ COPY cerebro/requirements.dev.txt ./
 RUN pip install --no-cache-dir -r requirements.dev.txt
 
 COPY cerebro/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt 
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY orca_tools /orca_tools
 RUN pip install --no-cache-dir -e /orca_tools
-
+COPY . .
 CMD ["python", "cerebro/__init__.py"]

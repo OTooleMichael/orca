@@ -14,12 +14,23 @@ def task_1() -> None:
 def task_2() -> None:
     print("Task 2")
 
+@task(upstream_tasks=["task_parent"])
+def task_child() -> None:
+    print("task_child")
+
+@task()
+def task_parent() -> None:
+    print("task_parent")
+    raise ValueError('Permanent fail')
+
 
 server = Server(
     name="server_b",
     tasks=[
         task_1,
         task_2,
+        task_child,
+        task_parent
     ],
     emitter=emitter,
 )

@@ -28,11 +28,11 @@ class WaitConsumer:
     def __repr__(self) -> str:
         matched = "\n".join([message_to_string(message) for message in self.matched])
         seen = "\n".join([message_to_string(message) for message in self.seen])
-        return f"{self.error}\nMatched:\n{matched},\nSeen:\n{seen}"
+        return f"{self.error} {self.empty=}\nMatched:\n{matched},\nSeen:\n{seen}"
 
     @property
     def empty(self) -> bool:
-        return not self.pattern
+        return not self.pattern and not self.error
 
     def consume(self, event: Event) -> bool:
         """Expects events to arrive in an order.
@@ -75,9 +75,8 @@ def _run_task(task_name: str, consumer: WaitConsumer, timeout: int = 5) -> None:
         thread.join(timeout=timeout)
     except TimeoutError:
         assert not consumer.empty, "Patterns matched but failed to exit thread"
-        print("timeout", consumer)
         raise AssertionError("Unmatched patterns")
-
+    assert not consumer.error, consumer
     assert consumer.empty, consumer
 
 
@@ -145,5 +144,69 @@ def test_task_a() -> None:
             targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
             and e.event.state == orca_enums.TaskState.COMPLETED,
             debug=True,
+        ),
+    )
+
+
+
+def test_two_servers() -> None:
+    pattern = _tuples_to_pattern(
+        [
+            # [("task_c", orca_enums.TaskState.COMPLETED)], is complete
+            [
+                ("task_b", orca_enums.TaskState.COMPLETED),
+                ("task_d", orca_enums.TaskState.COMPLETED),
+            ],
+            [("task_a", orca_enums.TaskState.COMPLETED)],
+            [("task2", orca_enums.TaskState.COMPLETED)],
+            ]
+    )
+    _run_task(
+        "task_2",
+        WaitConsumer(
+            pattern=pattern,
+            targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
+            and e.event.state == orca_enums.TaskState.COMPLETED,
+            debug=False,
+        ),
+    )
+
+'''def test_missing_upstream_task() -> None:
+    pattern = _tuples_to_pattern(
+        [
+            # [("task_c", orca_enums.TaskState.COMPLETED)], is complete
+            [
+                ("task_b", orca_enums.TaskState.COMPLETED),
+                ("task_d", orca_enums.TaskState.COMPLETED),
+            ],
+            [("task_a", orca_enums.TaskState.COMPLETED)],
+            [("task_2", orca_enums.TaskState.COMPLETED)],
+            ]
+    )
+    _run_task(
+        "task_",
+        WaitConsumer(
+            pattern=pattern,
+            targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
+            ,
+            debug=False,
+        ),
+    )'''
+
+def test_failing_upstream() -> None:
+    pattern= _tuples_to_pattern([
+        [("task_parent", orca_enums.TaskState.STARTED)],
+        [("task_parent", orca_enums.TaskState.FAILED)],
+        [("task_parent", orca_enums.TaskState.COMPLETED)],
+
+
+          ])
+
+    _run_task(
+        "task_child",
+        WaitConsumer(
+            pattern=pattern,
+            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
+            debug=False,
         ),
     )
