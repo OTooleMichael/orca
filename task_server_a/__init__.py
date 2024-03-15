@@ -1,7 +1,7 @@
 import time
 
 from orca_tools.task_server_utils import Server, emitter
-from orca_tools.models import task
+from orca_tools.models import task, Task
 
 
 @task(upstream_tasks=["task_c", "task_b", "task_d"])
@@ -28,12 +28,7 @@ def task_d() -> None:
 
 server = Server(
     name="server_a",
-    tasks=[
-        task_a,
-        task_b,
-        task_c,
-        task_d,
-    ],
+    tasks=[task for task in globals().values() if isinstance(task, Task)],
     emitter=emitter,
 )
 

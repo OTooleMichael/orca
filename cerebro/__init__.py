@@ -148,9 +148,22 @@ class Waiter:
     thread_lock: Callable[[], ContextManager[None]]
     waiter_id: str = field(default_factory=lambda: orca_id("waiter"))
     _is_dead: bool = False
+    _is_failed: bool = False
     _original_upstream_tasks: set[str] = field(init=False, default_factory=set)
 
     def run(self, emitter: EventBus) -> None:
+        if self._is_failed:
+            emitter.publish(
+                pb2.TaskStateEvent(
+                    event=pb2.EventCore(
+                        event_id=orca_id("event"),
+                        source_server_id="cerebro",
+                        task_name=self.task_name,
+                        state=pb2.FAILED_UPSTREAM,
+                    ),
+                ),
+            )
+            return
         emitter.publish(
             pb2.RunTaskEvent(
                 task_name=self.task_name,
@@ -172,6 +185,12 @@ class Waiter:
         task_name = event.event.task_name
         if task_name not in self.upstream_tasks:
             return False
+
+        if orca_enums.TaskState(event.event.state) in (
+            orca_enums.TaskState.FAILED,
+            orca_enums.TaskState.FAILED_UPSTREAM,
+        ):
+            self._is_failed = True
 
         with self.thread_lock():
             if not self._original_upstream_tasks:

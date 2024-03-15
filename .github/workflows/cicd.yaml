@@ -1,0 +1,21 @@
+name: Docker CI/CD
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  build-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - id: git-checkout
+        name: Checkout
+        uses: actions/checkout@v3
+      - name: start containers
+        run: docker-compose up -d --build
+      - name: Run Pytests
+        run: |
+          docker compose run \
+            --no-deps --rm --entrypoint="" cerebro \
+            pytest -n0 .
+      - name:
+        if: always()
+        run: docker-compose down

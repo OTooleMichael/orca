@@ -16,6 +16,8 @@ RunableType = Callable[[], None]
 
 @dataclass
 class Task:
+    """Task class, callable in the case of a Task Server."""
+
     name: str
     downstream_tasks: list[str] = field(default_factory=list)
     upstream_tasks: list[str] = field(default_factory=list)
