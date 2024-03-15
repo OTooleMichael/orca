@@ -74,14 +74,19 @@ class Server:
                 )
             )
         )
-        task()
+        state=orca_enums.TaskState.pb().COMPLETED
+        try:
+            task()
+        except Exception as e:
+            print(e)
+            state=orca_enums.TaskState.pb().FAILED
         print(f"finished task {name}")
         del self._states[name]
         self._publish(
             pb2.TaskStateEvent(
                 event=pb2.EventCore(
                     task_name=name,
-                    state=orca_enums.TaskState.pb().COMPLETED,
+                    state=state,
                 )
             )
         )

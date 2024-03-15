@@ -72,11 +72,11 @@ Other potential names for inspiration:
 ## Mission:
 - Centrally manage distributed workloads
 
-- Orchestrate any set of tasks. Language agnostic and non-prohibitive in objective. "A task" can be anything, a data-import job in rust, an e-mail distribution in java, a google sheet update in python, an SQL-transformation pipeline with dbt, you name it. A task may depend on other tasks in the network to have run first, or to have run within a certain timeframe. These "upstream-dependencies" may be owned and maintained by a different team and may be executed on a different server. 
+- Orchestrate any set of tasks. Language agnostic and non-prohibitive in objective. "A task" can be anything, a data-import job in rust, an e-mail distribution in java, a google sheet update in python, an SQL-transformation pipeline with dbt, you name it. A task may depend on other tasks in the network to have run first, or to have run within a certain timeframe. These "upstream-dependencies" may be owned and maintained by a different team and may be executed on a different server.
 
 - Dynamically assessing the required run-order.
 
-- Enforcing compliance with standardized minimalistic communication framework for all participants in the network. As such, ensuring continuous effective collaboration among multiple inter-dependendent dev-teams. 
+- Enforcing compliance with standardized minimalistic communication framework for all participants in the network. As such, ensuring continuous effective collaboration among multiple inter-dependendent dev-teams.
 
 - While being a joint effort of engineers and analysts with backgrounds in various analytical data processing setups, the project aims to also be applicable to any other problem-field with complex task-based orchestration requirements
 
@@ -135,7 +135,7 @@ continuously test:
 
      cerebro '*invokes*': it sends an event that tells a task-server to '*run*' a task
 
-- TASK_STATE["pending"]: cerebro has built the graph and is wating for upstream tasks to complete, before sending out a command to execute this particular task 
+- TASK_STATE["pending"]: cerebro has built the graph and is wating for upstream tasks to complete, before sending out a command to execute this particular task
 - TASK_STATE["queued"]: a task-server has received an invocation-command from cerebro to run a task, but it's currently busy with somehting else / has not yet actually started running the task
 - TASK_STATE["started"]: a task-server has received an invocation-command from cerebro to run a task, and has now started running it
 - TASK_STATE["completed"]: a task-server has received a run-command from cerebro to run a task, has already reported that it has TASK_STATE["started"], and now reports TASK_STATE["completed"] after having finished the task
