@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 from collections.abc import Callable
+
+from result import Result, Err, Ok
 from generated_grpc import orca_pb2 as pb2
 
 STATES = [
@@ -16,11 +18,14 @@ RunableType = Callable[[], None]
 
 @dataclass
 class Task:
+    """Task class, callable in the case of a Task Server."""
+
     name: str
     downstream_tasks: list[str] = field(default_factory=list)
     upstream_tasks: list[str] = field(default_factory=list)
     run: RunableType | None = None
     complete_check: Callable[[], bool] | None = None
+    _result: Result[None, Exception] | None = None
 
     @classmethod
     def from_pb(cls, pb: pb2.Task) -> "Task":
@@ -37,9 +42,26 @@ class Task:
             upstream_tasks=self.upstream_tasks,
         )
 
+    @property
+    def result(self) -> Result[None, Exception]:
+        if self._result is None:
+            return Err(RuntimeError("Task has not been run"))
+        return self._result
+
     def __call__(self) -> None:
         if self.run:
             self.run()
+
+    def safe_run(self) -> Result[None, Exception]:
+        try:
+            self.__call__()
+            self._result = Ok(None)
+            return self._result
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            self._result = Err(e)
+            return self._result
 
     def is_complete(self) -> bool:
         if self.complete_check:

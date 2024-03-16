@@ -1,9 +1,12 @@
 from dataclasses import dataclass, field
+from result import Err, Ok, Result
+import copy
 from orca_tools.models import Task
 from orca_tools.py_event_server import EventBus, emitter
 from orca_tools.protos import Event
 from orca_tools.utils import orca_id
 from generated_grpc import orca_pb2 as pb2, orca_enums
+from threading import Thread, current_thread
 
 
 @dataclass
@@ -36,7 +39,6 @@ class Server:
                 source_server_id=":".join([self.name, self.server_id]),
             )
         )
-        print(event)
         self.emitter.publish(event)
 
     def start(self) -> None:
@@ -59,6 +61,19 @@ class Server:
     def get_task(self, name: str) -> Task | None:
         return next((task for task in self.tasks if task.name == name), None)
 
+    def _safe_run(self, task: Task) -> Result[None, Exception]:
+        # Create a thread to run the function
+        task_clone = copy.copy(task)
+        try:
+            thread = Thread(target=task_clone.safe_run)
+            thread.start()
+            thread.join()
+            return task_clone.result
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            return Err(e)
+
     def run_task(self, name: str) -> None:
         task = self.get_task(name)
         if self._states.get(name) == "running" or not task:
@@ -74,12 +89,10 @@ class Server:
                 )
             )
         )
-        state=orca_enums.TaskState.pb().COMPLETED
-        try:
-            task()
-        except Exception as e:
-            print(e)
-            state=orca_enums.TaskState.pb().FAILED
+        state = orca_enums.TaskState.pb().COMPLETED
+        res = self._safe_run(task)
+        if res.is_err():
+            state = orca_enums.TaskState.pb().FAILED
         print(f"finished task {name}")
         del self._states[name]
         self._publish(

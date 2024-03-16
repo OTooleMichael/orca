@@ -65,6 +65,7 @@ class WaitConsumer:
 
 
 def _run_task(task_name: str, consumer: WaitConsumer, timeout: int = 5) -> None:
+    """Run a given task and wait according to the pattern of our consumer."""
     time.sleep(1)
     event = pb2.UserRunTaskEvent(
         event=pb2.EventCore(task_name=task_name, source_server_id="cli"),
@@ -124,6 +125,8 @@ def test_bad_pattern() -> None:
                 pattern=pattern, targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
             ),
         )
+    # The cactual events can overlap with the next test
+    time.sleep(2)
 
 
 def test_task_a() -> None:
@@ -148,18 +151,16 @@ def test_task_a() -> None:
     )
 
 
-
 def test_two_servers() -> None:
     pattern = _tuples_to_pattern(
         [
-            # [("task_c", orca_enums.TaskState.COMPLETED)], is complete
             [
                 ("task_b", orca_enums.TaskState.COMPLETED),
                 ("task_d", orca_enums.TaskState.COMPLETED),
             ],
             [("task_a", orca_enums.TaskState.COMPLETED)],
-            [("task2", orca_enums.TaskState.COMPLETED)],
-            ]
+            [("task_2", orca_enums.TaskState.COMPLETED)],
+        ]
     )
     _run_task(
         "task_2",
@@ -171,7 +172,8 @@ def test_two_servers() -> None:
         ),
     )
 
-'''def test_missing_upstream_task() -> None:
+
+"""def test_missing_upstream_task() -> None:
     pattern = _tuples_to_pattern(
         [
             # [("task_c", orca_enums.TaskState.COMPLETED)], is complete
@@ -191,19 +193,24 @@ def test_two_servers() -> None:
             ,
             debug=False,
         ),
-    )'''
+    )"""
+
 
 def test_failing_upstream() -> None:
-    pattern= _tuples_to_pattern([
-        [("task_parent", orca_enums.TaskState.STARTED)],
-        [("task_parent", orca_enums.TaskState.FAILED)],
-        [("task_parent", orca_enums.TaskState.COMPLETED)],
-
-
-          ])
+    pattern = _tuples_to_pattern(
+        [
+            [
+                ("task_3", orca_enums.TaskState.STARTED),
+                ("task_failing_root", orca_enums.TaskState.STARTED),
+                ("task_3", orca_enums.TaskState.COMPLETED),
+                ("task_failing_root", orca_enums.TaskState.FAILED),
+            ],
+            [("task_requires_failing", orca_enums.TaskState.FAILED_UPSTREAM)],
+        ]
+    )
 
     _run_task(
-        "task_child",
+        "task_requires_failing",
         WaitConsumer(
             pattern=pattern,
             targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
