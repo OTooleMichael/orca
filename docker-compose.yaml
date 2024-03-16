@@ -14,31 +14,32 @@ services:
       - ./tmp:/tmp
     networks:
       - app-network
-  task-server-a:
+  task-server-letters:
     depends_on:
       - redis
       - cerebro
-    command: ["sh", "./starter.sh", "task_server_a/__init__.py"]
+    command:
+      ["sh", "./starter.sh", "task_servers/task_server_letters/__init__.py"]
     build:
       context: .
-      dockerfile: ./task_server_a/Dockerfile
+      dockerfile: ./task_servers/Dockerfile
     environment:
-      ORCA_NAME: task-server-a-test
+      ORCA_NAME: task-server-letters
     volumes:
       - .:/src
       - ./docker-data/tmp:/tmp
     networks:
       - app-network
-  task-server-b:
+  task-server-nums:
     depends_on:
       - redis
       - cerebro
-    command: ["sh", "./starter.sh", "task_server_b/__init__.py"]
+    command: ["sh", "./starter.sh", "task_servers/task_server_nums/__init__.py"]
     build:
       context: .
-      dockerfile: ./task_server_b/Dockerfile
+      dockerfile: ./task_servers/Dockerfile
     environment:
-      ORCA_NAME: task-server-b-test
+      ORCA_NAME: task-server-nums
     volumes:
       - .:/src
       - ./docker-data/tmp:/tmp
