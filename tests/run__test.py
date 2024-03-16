@@ -196,6 +196,60 @@ def test_two_servers() -> None:
     )"""
 
 
+@pytest.mark.skip
+def test_unknown_task() -> None:
+    """Should emit and error when an unknown task is run."""
+
+
+@pytest.mark.skip
+def test_broken_graph_deps() -> None:
+    """Should emit and error when the runnable dag has a broken dependency."""
+
+
+@pytest.mark.skip
+def two_dags_that_overlap_should_not_interfer() -> None:
+    """Dags that overlap should run, but share the shared tasks."""
+
+
+@pytest.mark.skip
+def test_shared_dags_should_have_dag_markers() -> None:
+    """If a task is shared between two dags, it should have a marker/id for each dag."""
+
+
+"""
+LifeCycle 
+- acknolwedge
+- start
+- pre_run_test_start
+- pre_run_start 
+- post_run_start
+- post_run_test_start
+- pre_commit_start
+- post_commit_start
+- complete
+"""
+
+
+@pytest.mark.skip
+def test_pretest_hook() -> None:
+    """Should run a hook before the task is run."""
+
+
+@pytest.mark.skip
+def test_posttest_hook() -> None:
+    """Should run a hook after the task is run."""
+
+
+@pytest.mark.skip
+def test_precommit_hook() -> None:
+    """Should run a hook before the task is committed."""
+
+
+@pytest.mark.skip
+def test_postcommit_hook() -> None:
+    """Should run a hook after the task is committed."""
+
+
 def test_failing_upstream() -> None:
     pattern = _tuples_to_pattern(
         [
