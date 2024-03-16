@@ -125,6 +125,8 @@ def test_bad_pattern() -> None:
                 pattern=pattern, targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
             ),
         )
+    # The cactual events can overlap with the next test
+    time.sleep(2)
 
 
 def test_task_a() -> None:
@@ -198,12 +200,11 @@ def test_failing_upstream() -> None:
     pattern = _tuples_to_pattern(
         [
             [
-                ("task_failing_root", orca_enums.TaskState.STARTED),
                 ("task_3", orca_enums.TaskState.STARTED),
-                # Note this should be moved I think,
+                ("task_failing_root", orca_enums.TaskState.STARTED),
+                ("task_3", orca_enums.TaskState.COMPLETED),
                 ("task_failing_root", orca_enums.TaskState.FAILED),
             ],
-            [("task_3", orca_enums.TaskState.COMPLETED)],
             [("task_requires_failing", orca_enums.TaskState.FAILED_UPSTREAM)],
         ]
     )
