@@ -196,9 +196,42 @@ def test_two_servers() -> None:
     )"""
 
 
-@pytest.mark.skip
 def test_unknown_task() -> None:
     """Should emit and error when an unknown task is run."""
+    pattern = _tuples_to_pattern([
+        [
+                ("task_unknown", orca_enums.TaskState.NOT_EXISTING),
+        ]
+    ])
+    #with pytest.raises(AssertionError):
+    _run_task(
+        "task_unknown",
+        WaitConsumer(
+            pattern=pattern,
+            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
+            debug=False,
+        ),
+    )
+
+def test_requires_unknown_task() -> None:
+    """Should emit and error when required task is unknown."""
+    pattern = _tuples_to_pattern([
+        [
+            ("task_non_existing", orca_enums.TaskState.NOT_EXISTING),
+            ("task_requires_non_extisting_task", orca_enums.TaskState.FAILED_UPSTREAM)
+        ]
+    ])
+    _run_task(
+        "task_requires_non_extisting_task",
+        WaitConsumer(
+            pattern=pattern,
+            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
+            debug=False,
+        ),
+    )
+
+
+
 
 
 @pytest.mark.skip
@@ -217,11 +250,11 @@ def test_shared_dags_should_have_dag_markers() -> None:
 
 
 """
-LifeCycle 
+LifeCycle
 - acknolwedge
 - start
 - pre_run_test_start
-- pre_run_start 
+- pre_run_start
 - post_run_start
 - post_run_test_start
 - pre_commit_start
@@ -259,7 +292,7 @@ def test_failing_upstream() -> None:
                 ("task_3", orca_enums.TaskState.COMPLETED),
                 ("task_failing_root", orca_enums.TaskState.FAILED),
             ],
-            [("task_requires_failing", orca_enums.TaskState.FAILED_UPSTREAM)],
+            [("try to complete", orca_enums.TaskState.FAILED_UPSTREAM)],
         ]
     )
 

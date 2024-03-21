@@ -30,6 +30,11 @@ def task_failing_root() -> None:
     print("Failing Task")
     raise ValueError("Permanent fail")
 
+@task(upstream_tasks=["task_non_existing", "task_3"])
+def task_requires_non_extisting_task() -> None:
+    print("task_child")
+
+
 
 server = Server(
     name="server_b",

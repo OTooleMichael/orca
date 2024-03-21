@@ -336,7 +336,27 @@ class Cerebro:
                 continue
 
             if not self.tasks.get(current):
-                raise ValueError(f"Task {current} does not exist")
+                event = pb2.TaskStateEvent(
+                    event=pb2.EventCore(
+                        event_id=orca_id("event"),
+                        source_server_id="cerebro",
+                        task_name=current,
+                        state=pb2.NOT_EXISTING,
+                    )
+                )
+                emitter.publish(event)
+                event2 = pb2.TaskStateEvent(
+                    event=pb2.EventCore(
+                        event_id=orca_id("event"),
+                        source_server_id="cerebro",
+                        task_name=task_name,
+                        state=pb2.FAILED_UPSTREAM, #possible additional state: NOT_EXISTING_TASK_UPSTREAM
+                    )
+                )
+                emitter.publish(event2)
+
+                return []
+
 
             subgraph_items.append(current)
             children = self.graph.get(current, [])
@@ -351,6 +371,8 @@ class Cerebro:
             return None
         self._clean_task_states()
         connections = self.build_subgraph(task_name)
+        if not connections:
+            return None
         self.dag_runs[task_name] = DagRun(
             task_name=task_name,
             cerebro=self,
