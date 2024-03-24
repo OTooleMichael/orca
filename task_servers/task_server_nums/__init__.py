@@ -1,4 +1,3 @@
-import time
 from orca_tools.task_server_utils import Server, emitter
 from orca_tools.models import task, Task
 
@@ -6,8 +5,6 @@ from orca_tools.models import task, Task
 @task(upstream_tasks=["task_2", "task_b", "task_d"])
 def task_1() -> None:
     print("Task 1 start")
-    time.sleep(2)
-    print("Task 1 end")
 
 
 @task(upstream_tasks=["task_a", "task_c"])

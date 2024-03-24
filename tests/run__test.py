@@ -25,7 +25,6 @@ def test_passing() -> None:
         run_task(
             "task_d",
             WaitConsumer(
-                debug=True,
                 pattern=[
                     [TaskStateMatcher("task_d", en.TaskState.STARTED)],
                     [TaskStateMatcher("task_d", en.TaskState.COMPLETED)],
@@ -69,7 +68,6 @@ def test_task_a() -> None:
                 pattern=pattern,
                 targeted=lambda event: isinstance(event, pb2.TaskStateEvent)
                 and event.event.state == en.TaskState.COMPLETED,
-                debug=True,
             ),
             emitter=emitter,
         )
@@ -88,14 +86,13 @@ def test_two_servers() -> None:
         tasks = task_server_nums.server.tasks
         server = Server(name="b", tasks=tasks, emitter=emitter)
         server.start()
-        time.sleep(1)
+        time.sleep(0.4)
         run_task(
             "task_2",
             WaitConsumer(
                 pattern=pattern,
                 targeted=lambda event: isinstance(event, pb2.TaskStateEvent)
                 and event.event.state == en.TaskState.COMPLETED,
-                debug=True,
             ),
             emitter=emitter,
         )
@@ -110,7 +107,6 @@ def test_unknown_task() -> None:
             WaitConsumer(
                 pattern=pattern,
                 targeted=lambda event: isinstance(event, pb2.TaskStateEvent),
-                debug=False,
             ),
             emitter=emitter,
         )
@@ -132,7 +128,6 @@ def test_requires_unknown_task() -> None:
             WaitConsumer(
                 pattern=pattern,
                 targeted=lambda event: isinstance(event, pb2.TaskStateEvent),
-                debug=False,
             ),
             emitter=emitter,
         )
