@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from result import Err, Ok, Result
+from result import Err, Result
 import copy
 from orca_tools.models import Task
 from orca_tools.py_event_server import EventBus, emitter
 from orca_tools.protos import Event
 from orca_tools.utils import orca_id
 from generated_grpc import orca_pb2 as pb2, orca_enums
-from threading import Thread, current_thread
+from threading import Thread
 
 
 @dataclass
@@ -17,7 +17,7 @@ class Server:
     _states: dict[str, str] = field(default_factory=dict)
     server_id: str = field(default_factory=lambda: orca_id("server"))
 
-    def _handle_event(self, event: Event, _: EventBus) -> None:
+    def _handle_event(self, event: Event, emitter: EventBus) -> None:
         if event.event.source_server_id == self.name:
             return None
         if isinstance(event, pb2.DescribeServerReq):
@@ -41,8 +41,16 @@ class Server:
         )
         self.emitter.publish(event)
 
+    def close(self) -> None:
+        if not self._listener:
+            return
+        try:
+            self._listener.join(timeout=1)
+        except Exception:
+            pass
+
     def start(self) -> None:
-        self.emitter.subscribe_thread(self._handle_event)
+        self._listener = self.emitter.subscribe_thread(self._handle_event, "server")
         self.describe()
         self._publish(
             pb2.ServerStateEvent(

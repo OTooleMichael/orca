@@ -1,5 +1,3 @@
-import time
-
 from orca_tools.task_server_utils import Server, emitter
 from orca_tools.models import task, Task
 
@@ -22,13 +20,30 @@ def task_c() -> None:
 @task()
 def task_d() -> None:
     print("Task D")
-    time.sleep(2)
-    print("Task D done")
+
+
+@task(upstream_tasks=["task_failing_root", "task_d"])
+def task_requires_failing() -> None:
+    print("task_child")
+
+
+@task()
+def task_failing_root() -> None:
+    print("Failing Task")
+    raise ValueError("Permanent fail")
+
+
+@task(upstream_tasks=["task_non_existing"])
+def task_requires_non_extisting_task() -> None:
+    print("task_requires_non_extisting_task")
+
+
+tasks = [task for task in globals().values() if isinstance(task, Task)]
 
 
 server = Server(
     name="server_a",
-    tasks=[task for task in globals().values() if isinstance(task, Task)],
+    tasks=tasks,
     emitter=emitter,
 )
 

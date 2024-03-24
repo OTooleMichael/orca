@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from typing import ContextManager
 
 from orca_tools.models import Task
-from orca_tools.py_event_server import EventBus, emitter
+from orca_tools.py_event_server import EventBus, MemoryBus, emitter as _emitter
 from orca_tools.utils import orca_id
 from orca_tools.protos import Event, is_terminal_state
 from generated_grpc import orca_pb2 as pb2, orca_enums
@@ -246,9 +246,17 @@ class Cerebro:
             for key in del_keys:
                 del self.task_state[key]
 
+    def close(self) -> None:
+        if not self._listener:
+            return
+        try:
+            self._listener.join(timeout=1)
+        except Exception:
+            pass
+
     def start(self) -> None:
-        self.emitter.subscribe_thread(self._handler)
-        time.sleep(1)
+        print("Starting")
+        self._listener = self.emitter.subscribe_thread(self._handler, "crebro")
         self.publish(
             pb2.DescribeServerReq(
                 event=pb2.EventCore(
@@ -257,6 +265,7 @@ class Cerebro:
                 )
             ),
         )
+        print("Cerebro started")
 
     def _graph_edge(self, from_key: str, to_key: str) -> None:
         self.graph[from_key] = self.graph.get(from_key, [])
@@ -269,7 +278,7 @@ class Cerebro:
         for upstream_task in task.upstream_tasks:
             self._graph_edge(task.name, upstream_task)
 
-    def _handle_task_state(self, event: pb2.TaskStateEvent, _: EventBus) -> None:
+    def _handle_task_state(self, event: pb2.TaskStateEvent, emitter: EventBus) -> None:
         if orca_enums.TaskState.from_grpc(event.event.state) in (
             orca_enums.TaskState.NA,
         ):
@@ -344,19 +353,17 @@ class Cerebro:
                         state=pb2.NOT_EXISTING,
                     )
                 )
-                emitter.publish(event)
+                self.emitter.publish(event)
                 event2 = pb2.TaskStateEvent(
                     event=pb2.EventCore(
                         event_id=orca_id("event"),
                         source_server_id="cerebro",
                         task_name=task_name,
-                        state=pb2.FAILED_UPSTREAM, #possible additional state: NOT_EXISTING_TASK_UPSTREAM
+                        state=pb2.FAILED_UPSTREAM,  # possible additional state: NOT_EXISTING_TASK_UPSTREAM
                     )
                 )
-                emitter.publish(event2)
-
+                self.emitter.publish(event2)
                 return []
-
 
             subgraph_items.append(current)
             children = self.graph.get(current, [])
@@ -383,7 +390,7 @@ class Cerebro:
 
 
 cerebro = Cerebro(
-    emitter=emitter,
+    emitter=_emitter,
 )
 
 
