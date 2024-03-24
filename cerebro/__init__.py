@@ -127,7 +127,6 @@ class DagRun:
                 )
             )
             emitter.publish(ac_event)
-            assert isinstance(emitter, MemoryBus), "Not a MemoryBus"
             self.cerebro._handler(ac_event, emitter)
         for task_name in set(self.base_tasks):
             emitter.publish(
@@ -177,7 +176,6 @@ class Waiter:
         )
 
     def handler(self, event: pb2.TaskStateEvent, emitter: EventBus) -> bool:
-        assert isinstance(emitter, MemoryBus), "Not a MemoryBus"
         if self._is_dead:
             return True
 
