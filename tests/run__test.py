@@ -243,6 +243,48 @@ def test_two_servers() -> None:
             emitter=emitter,
         )
 
+def test_unknown_task() -> None:
+    """Should emit and error when an unknown task is run."""
+    pattern = _tuples_to_pattern([
+        [
+                ("task_unknown", orca_enums.TaskState.NOT_EXISTING),
+        ]
+    ])
+    #with pytest.raises(AssertionError):
+    _run_task(
+        "task_unknown",
+        WaitConsumer(
+            pattern=pattern,
+            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
+            debug=False,
+        ),
+    )
+
+def test_requires_unknown_task() -> None:
+    """Should emit and error when required task is unknown."""
+    pattern = _tuples_to_pattern([
+        [
+            ("task_non_existing", orca_enums.TaskState.NOT_EXISTING),
+            ("task_requires_non_extisting_task", orca_enums.TaskState.FAILED_UPSTREAM)
+        ]
+    ])
+    _run_task(
+        "task_requires_non_extisting_task",
+        WaitConsumer(
+            pattern=pattern,
+            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
+            debug=False,
+        ),
+    )
+
+
+
+
+
+@pytest.mark.skip
+def test_broken_graph_deps() -> None:
+    """Should emit and error when the runnable dag has a broken dependency."""
+
 
 @pytest.mark.skip
 def two_dags_that_overlap_should_not_interfer() -> None:
@@ -255,11 +297,11 @@ def test_shared_dags_should_have_dag_markers() -> None:
 
 
 """
-LifeCycle 
+LifeCycle
 - acknolwedge
 - start
 - pre_run_test_start
-- pre_run_start 
+- pre_run_start
 - post_run_start
 - post_run_test_start
 - pre_commit_start
