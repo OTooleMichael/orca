@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from typing import ContextManager
 
 from orca_tools.models import Task
-from orca_tools.py_event_server import EventBus, emitter
+from orca_tools.py_event_server import EventBus, MemoryBus, emitter
 from orca_tools.utils import orca_id
 from orca_tools.protos import Event, is_terminal_state
 from generated_grpc import orca_pb2 as pb2, orca_enums
@@ -127,6 +127,7 @@ class DagRun:
                 )
             )
             emitter.publish(ac_event)
+            assert isinstance(emitter, MemoryBus), "Not a MemoryBus"
             self.cerebro._handler(ac_event, emitter)
         for task_name in set(self.base_tasks):
             emitter.publish(
@@ -176,6 +177,7 @@ class Waiter:
         )
 
     def handler(self, event: pb2.TaskStateEvent, emitter: EventBus) -> bool:
+        assert isinstance(emitter, MemoryBus), "Not a MemoryBus"
         if self._is_dead:
             return True
 
@@ -246,8 +248,17 @@ class Cerebro:
             for key in del_keys:
                 del self.task_state[key]
 
+    def close(self) -> None:
+        if not self._listener:
+            return
+        try:
+            self._listener.join(timeout=1)
+        except Exception:
+            pass
+
     def start(self) -> None:
-        self.emitter.subscribe_thread(self._handler)
+        print("Starting")
+        self._listener = self.emitter.subscribe_thread(self._handler, "crebro")
         time.sleep(1)
         self.publish(
             pb2.DescribeServerReq(
@@ -257,6 +268,7 @@ class Cerebro:
                 )
             ),
         )
+        print("Cerebro started")
 
     def _graph_edge(self, from_key: str, to_key: str) -> None:
         self.graph[from_key] = self.graph.get(from_key, [])
@@ -269,7 +281,7 @@ class Cerebro:
         for upstream_task in task.upstream_tasks:
             self._graph_edge(task.name, upstream_task)
 
-    def _handle_task_state(self, event: pb2.TaskStateEvent, _: EventBus) -> None:
+    def _handle_task_state(self, event: pb2.TaskStateEvent, emitter: EventBus) -> None:
         if orca_enums.TaskState.from_grpc(event.event.state) in (
             orca_enums.TaskState.NA,
         ):

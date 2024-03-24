@@ -20,17 +20,6 @@ def task_3() -> None:
     print("Task 3")
 
 
-@task(upstream_tasks=["task_failing_root", "task_3"])
-def task_requires_failing() -> None:
-    print("task_child")
-
-
-@task()
-def task_failing_root() -> None:
-    print("Failing Task")
-    raise ValueError("Permanent fail")
-
-
 server = Server(
     name="server_b",
     tasks=[task for task in globals().values() if isinstance(task, Task)],

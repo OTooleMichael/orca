@@ -1,25 +1,47 @@
-from collections.abc import Callable
-import functools
-import pytest
+from contextlib import closing, contextmanager
 import time
+from typing import Generator, Protocol
+import pytest
 from dataclasses import dataclass, field
 
-from orca_tools.py_event_server import emitter
+from orca_tools.py_event_server import emitter as _emitter
 from orca_tools.protos import Event
+from orca_tools.py_event_server import MemoryBus, EventBus
+from cerebro import Cerebro
+from orca_tools.task_server_utils import Server
+from task_servers import task_server_letters, task_server_nums
 from generated_grpc import orca_pb2 as pb2
-from generated_grpc import orca_enums
+from generated_grpc import orca_enums as en
 
-PatternFn = Callable[[Event], bool]
+
+class PatternFn(Protocol):
+    def __call__(self, event: Event) -> bool: ...
+
+
+@dataclass
+class TaskStateMatcher(PatternFn):
+    task_name: str
+    state: en.TaskState
+
+    def __call__(self, event: Event) -> bool:
+        if not isinstance(event, pb2.TaskStateEvent):
+            return False
+        return (
+            event.event.task_name == self.task_name and event.event.state == self.state
+        )
 
 
 def message_to_string(message: Event) -> str:
     return "\n".join([message.DESCRIPTOR.name, str(message)])
 
 
+Pattern = list[list[PatternFn]]
+
+
 @dataclass
 class WaitConsumer:
     targeted: PatternFn
-    pattern: list[list[PatternFn]]
+    pattern: Pattern
     matched: list[Event] = field(default_factory=list)
     seen: list[Event] = field(default_factory=list)
     error: str = ""
@@ -41,36 +63,47 @@ class WaitConsumer:
         """
         return self._consume(event)
 
+    def handle(self, event: Event, emitter: EventBus) -> bool:
+        return self._consume(event)
+
     def _consume(self, event: Event) -> bool:
         if not self.targeted(event):
             return False
+
         if self.debug:
             print(message_to_string(event))
+
         self.seen.append(event)
         current_layer = self.pattern.pop(0) if self.pattern else None
         if not current_layer:
+            print("No more patterns to match")
             return True
 
         new_layer = list(filter(lambda pattern: not pattern(event), current_layer))
-        if new_layer == current_layer:
+        if len(new_layer) == len(current_layer):
             self.error = f"No pattern matched for {event!s}"
-            print(self)
+            print(self.error)
             return True
 
         self.matched.append(event)
         if not new_layer:
             return self.empty
+
         self.pattern = [new_layer] + self.pattern
         return False
 
 
-def _run_task(task_name: str, consumer: WaitConsumer, timeout: int = 5) -> None:
+def _run_task(
+    task_name: str,
+    consumer: WaitConsumer,
+    timeout: int = 5,
+    emitter: EventBus = _emitter,
+) -> None:
     """Run a given task and wait according to the pattern of our consumer."""
-    time.sleep(1)
     event = pb2.UserRunTaskEvent(
         event=pb2.EventCore(task_name=task_name, source_server_id="cli"),
     )
-    thread = emitter.subscribe_thread(lambda e, em: consumer.consume(e))
+    thread = emitter.subscribe_thread(consumer.handle, "consumer")
     emitter.publish(event)
     try:
         thread.join(timeout=timeout)
@@ -81,129 +114,134 @@ def _run_task(task_name: str, consumer: WaitConsumer, timeout: int = 5) -> None:
     assert consumer.empty, consumer
 
 
-def _layer_el_matcher(event: Event, el: tuple[str, orca_enums.TaskState]) -> bool:
-    if not isinstance(event, pb2.TaskStateEvent):
-        return False
-    return event.event.task_name == el[0] and event.event.state == el[1]
+def _is_state_event(event: Event) -> bool:
+    return isinstance(event, pb2.TaskStateEvent)
 
 
-def _tuples_to_pattern(
-    pattern: list[list[tuple[str, orca_enums.TaskState]]],
-) -> list[list[PatternFn]]:
-    return [
-        ([functools.partial(_layer_el_matcher, el=el) for el in layer])
-        for layer in pattern
-    ]
+@dataclass
+class ServersStarted:
+    servers: list[str]
+
+    def __call__(self, event: Event, emitter: EventBus) -> bool:
+        if not isinstance(event, pb2.ServerStateEvent):
+            return False
+        if event.event.state != en.ServerState.READY:
+            return False
+        self.servers = [
+            server for server in self.servers if server != event.event.source_server_id
+        ]
+        return not self.servers
+
+
+@contextmanager
+def _create_server() -> Generator[MemoryBus, None, None]:
+    emitter = MemoryBus()
+    with closing(emitter):
+        cer = Cerebro(emitter=emitter)
+        tasks = task_server_letters.tasks
+        server = task_server_letters.Server(name="a", tasks=tasks, emitter=emitter)
+        ready_check = ServersStarted(
+            servers=[
+                cer.server_name,
+                server.name,
+            ]
+        )
+        thread = emitter.subscribe_thread(ready_check, "ready_check")
+        server.start()
+        cer.start()
+        thread.join(timeout=1)
+        yield emitter
 
 
 def test_passing() -> None:
-    pattern = _tuples_to_pattern(
-        [
-            [("task_d", orca_enums.TaskState.STARTED)],
-            [("task_d", orca_enums.TaskState.COMPLETED)],
-        ]
-    )
-    _run_task(
-        "task_d",
-        WaitConsumer(
-            pattern=pattern, targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
-        ),
-    )
-
-
-def test_bad_pattern() -> None:
-    pattern = _tuples_to_pattern(
-        [
-            [("task_d", orca_enums.TaskState.COMPLETED)],
-            [("task_d", orca_enums.TaskState.STARTED)],
-        ]
-    )
-    with pytest.raises(AssertionError):
+    with _create_server() as emitter:
         _run_task(
             "task_d",
             WaitConsumer(
-                pattern=pattern, targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
+                debug=True,
+                pattern=[
+                    [TaskStateMatcher("task_d", en.TaskState.STARTED)],
+                    [TaskStateMatcher("task_d", en.TaskState.COMPLETED)],
+                ],
+                targeted=_is_state_event,
             ),
+            emitter=emitter,
         )
-    # The cactual events can overlap with the next test
-    time.sleep(2)
+
+
+def test_bad_pattern() -> None:
+    pattern: Pattern = [
+        [TaskStateMatcher("task_d", en.TaskState.COMPLETED)],
+        [TaskStateMatcher("task_d", en.TaskState.STARTED)],
+    ]
+    with _create_server() as emitter, pytest.raises(AssertionError):
+        _run_task(
+            "task_d",
+            WaitConsumer(
+                pattern=pattern,
+                targeted=_is_state_event,
+            ),
+            emitter=emitter,
+        )
+
+
+@dataclass
+class NameMatcher:
+    task_name: str
+
+    def __call__(self, event: Event) -> bool:
+        if not isinstance(event, pb2.TaskStateEvent):
+            return False
+        return event.event.task_name == self.task_name
 
 
 def test_task_a() -> None:
-    pattern = _tuples_to_pattern(
-        [
-            # [("task_c", orca_enums.TaskState.COMPLETED)],
+    with _create_server() as emitter:
+        pattern: Pattern = [
             [
-                ("task_b", orca_enums.TaskState.COMPLETED),
-                ("task_d", orca_enums.TaskState.COMPLETED),
+                NameMatcher("task_b"),
+                NameMatcher("task_d"),
             ],
-            [("task_a", orca_enums.TaskState.COMPLETED)],
+            [
+                NameMatcher("task_a"),
+            ],
         ]
-    )
-    _run_task(
-        "task_a",
-        WaitConsumer(
-            pattern=pattern,
-            targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
-            and e.event.state == orca_enums.TaskState.COMPLETED,
-            debug=True,
-        ),
-    )
+        _run_task(
+            "task_a",
+            WaitConsumer(
+                pattern=pattern,
+                targeted=lambda event: isinstance(event, pb2.TaskStateEvent)
+                and event.event.state == en.TaskState.COMPLETED,
+                debug=True,
+            ),
+            emitter=emitter,
+        )
 
 
 def test_two_servers() -> None:
-    pattern = _tuples_to_pattern(
+    pattern: Pattern = [
         [
-            [
-                ("task_b", orca_enums.TaskState.COMPLETED),
-                ("task_d", orca_enums.TaskState.COMPLETED),
-            ],
-            [("task_a", orca_enums.TaskState.COMPLETED)],
-            [("task_2", orca_enums.TaskState.COMPLETED)],
-        ]
-    )
-    _run_task(
-        "task_2",
-        WaitConsumer(
-            pattern=pattern,
-            targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
-            and e.event.state == orca_enums.TaskState.COMPLETED,
-            debug=False,
-        ),
-    )
-
-
-"""def test_missing_upstream_task() -> None:
-    pattern = _tuples_to_pattern(
-        [
-            # [("task_c", orca_enums.TaskState.COMPLETED)], is complete
-            [
-                ("task_b", orca_enums.TaskState.COMPLETED),
-                ("task_d", orca_enums.TaskState.COMPLETED),
-            ],
-            [("task_a", orca_enums.TaskState.COMPLETED)],
-            [("task_2", orca_enums.TaskState.COMPLETED)],
-            ]
-    )
-    _run_task(
-        "task_",
-        WaitConsumer(
-            pattern=pattern,
-            targeted=lambda e: isinstance(e, pb2.TaskStateEvent)
-            ,
-            debug=False,
-        ),
-    )"""
-
-
-@pytest.mark.skip
-def test_unknown_task() -> None:
-    """Should emit and error when an unknown task is run."""
-
-
-@pytest.mark.skip
-def test_broken_graph_deps() -> None:
-    """Should emit and error when the runnable dag has a broken dependency."""
+            NameMatcher("task_b"),
+            NameMatcher("task_d"),
+        ],
+        [NameMatcher("task_a")],
+        [NameMatcher("task_2")],
+    ]
+    with _create_server() as emitter:
+        tasks = task_server_nums.server.tasks
+        server = Server(name="b", tasks=tasks, emitter=emitter)
+        server.start()
+        time.sleep(1)
+        _run_task(
+            "task_2",
+            WaitConsumer(
+                pattern=pattern,
+                targeted=lambda event: isinstance(event, pb2.TaskStateEvent)
+                and event.event.state == en.TaskState.COMPLETED,
+                debug=True,
+            ),
+            emitter=emitter,
+        )
 
 
 @pytest.mark.skip
@@ -251,23 +289,23 @@ def test_postcommit_hook() -> None:
 
 
 def test_failing_upstream() -> None:
-    pattern = _tuples_to_pattern(
+    pattern: Pattern = [
         [
-            [
-                ("task_3", orca_enums.TaskState.STARTED),
-                ("task_failing_root", orca_enums.TaskState.STARTED),
-                ("task_3", orca_enums.TaskState.COMPLETED),
-                ("task_failing_root", orca_enums.TaskState.FAILED),
-            ],
-            [("task_requires_failing", orca_enums.TaskState.FAILED_UPSTREAM)],
-        ]
-    )
+            TaskStateMatcher("task_d", en.TaskState.STARTED),
+            TaskStateMatcher("task_d", en.TaskState.COMPLETED),
+            TaskStateMatcher("task_failing_root", en.TaskState.STARTED),
+            TaskStateMatcher("task_failing_root", en.TaskState.FAILED),
+        ],
+        [TaskStateMatcher("task_requires_failing", en.TaskState.FAILED_UPSTREAM)],
+    ]
 
-    _run_task(
-        "task_requires_failing",
-        WaitConsumer(
-            pattern=pattern,
-            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
-            debug=False,
-        ),
-    )
+    with _create_server() as emitter:
+        _run_task(
+            "task_requires_failing",
+            WaitConsumer(
+                pattern=pattern,
+                targeted=lambda event: isinstance(event, pb2.TaskStateEvent),
+                debug=False,
+            ),
+            emitter=emitter,
+        )
