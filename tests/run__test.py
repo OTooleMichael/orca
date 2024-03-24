@@ -243,42 +243,42 @@ def test_two_servers() -> None:
             emitter=emitter,
         )
 
+
 def test_unknown_task() -> None:
     """Should emit and error when an unknown task is run."""
-    pattern = _tuples_to_pattern([
-        [
-                ("task_unknown", orca_enums.TaskState.NOT_EXISTING),
-        ]
-    ])
-    #with pytest.raises(AssertionError):
-    _run_task(
-        "task_unknown",
-        WaitConsumer(
-            pattern=pattern,
-            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
-            debug=False,
-        ),
-    )
+    pattern: Pattern = [[TaskStateMatcher("task_unknown", en.TaskState.NOT_EXISTING)]]
+    with _create_server() as emitter:
+        _run_task(
+            "task_unknown",
+            WaitConsumer(
+                pattern=pattern,
+                targeted=lambda event: isinstance(event, pb2.TaskStateEvent),
+                debug=False,
+            ),
+            emitter=emitter,
+        )
+
 
 def test_requires_unknown_task() -> None:
     """Should emit and error when required task is unknown."""
-    pattern = _tuples_to_pattern([
+    pattern: Pattern = [
         [
-            ("task_non_existing", orca_enums.TaskState.NOT_EXISTING),
-            ("task_requires_non_extisting_task", orca_enums.TaskState.FAILED_UPSTREAM)
+            TaskStateMatcher("task_non_existing", en.TaskState.NOT_EXISTING),
+            TaskStateMatcher(
+                "task_requires_non_extisting_task", en.TaskState.FAILED_UPSTREAM
+            ),
         ]
-    ])
-    _run_task(
-        "task_requires_non_extisting_task",
-        WaitConsumer(
-            pattern=pattern,
-            targeted=lambda e: isinstance(e, pb2.TaskStateEvent),
-            debug=False,
-        ),
-    )
-
-
-
+    ]
+    with _create_server() as emitter:
+        _run_task(
+            "task_requires_non_extisting_task",
+            WaitConsumer(
+                pattern=pattern,
+                targeted=lambda event: isinstance(event, pb2.TaskStateEvent),
+                debug=False,
+            ),
+            emitter=emitter,
+        )
 
 
 @pytest.mark.skip

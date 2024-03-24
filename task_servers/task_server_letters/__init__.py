@@ -33,6 +33,11 @@ def task_failing_root() -> None:
     raise ValueError("Permanent fail")
 
 
+@task(upstream_tasks=["task_non_existing"])
+def task_requires_non_extisting_task() -> None:
+    print("task_requires_non_extisting_task")
+
+
 tasks = [task for task in globals().values() if isinstance(task, Task)]
 
 

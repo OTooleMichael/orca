@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from typing import ContextManager
 
 from orca_tools.models import Task
-from orca_tools.py_event_server import EventBus, MemoryBus, emitter
+from orca_tools.py_event_server import EventBus, MemoryBus, emitter as _emitter
 from orca_tools.utils import orca_id
 from orca_tools.protos import Event, is_terminal_state
 from generated_grpc import orca_pb2 as pb2, orca_enums
@@ -356,19 +356,17 @@ class Cerebro:
                         state=pb2.NOT_EXISTING,
                     )
                 )
-                emitter.publish(event)
+                self.emitter.publish(event)
                 event2 = pb2.TaskStateEvent(
                     event=pb2.EventCore(
                         event_id=orca_id("event"),
                         source_server_id="cerebro",
                         task_name=task_name,
-                        state=pb2.FAILED_UPSTREAM, #possible additional state: NOT_EXISTING_TASK_UPSTREAM
+                        state=pb2.FAILED_UPSTREAM,  # possible additional state: NOT_EXISTING_TASK_UPSTREAM
                     )
                 )
-                emitter.publish(event2)
-
+                self.emitter.publish(event2)
                 return []
-
 
             subgraph_items.append(current)
             children = self.graph.get(current, [])
@@ -395,7 +393,7 @@ class Cerebro:
 
 
 cerebro = Cerebro(
-    emitter=emitter,
+    emitter=_emitter,
 )
 
 
