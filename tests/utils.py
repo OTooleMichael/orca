@@ -23,12 +23,23 @@ class TaskStateMatcher(PatternFn):
     task_name: str
     state: en.TaskState
 
+    def _pair(self) -> tuple[str, en.TaskState]:
+        return self.task_name, self.state
+
     def __call__(self, event: Event) -> bool:
         if not isinstance(event, pb2.TaskStateEvent):
             return False
-        return (
-            event.event.task_name == self.task_name and event.event.state == self.state
-        )
+        return self._pair() == (event.event.task_name, event.event.state)
+
+
+@dataclass
+class NameMatcher:
+    task_name: str
+
+    def __call__(self, event: Event) -> bool:
+        if not isinstance(event, pb2.TaskStateEvent):
+            return False
+        return event.event.task_name == self.task_name
 
 
 def message_to_string(message: Event) -> str:
@@ -37,6 +48,11 @@ def message_to_string(message: Event) -> str:
 
 @dataclass
 class WaitConsumer:
+    """Expects events to arrive in an order.
+    Closes thread when all patterns are matched,
+    or an unknown event is received.
+    """
+
     targeted: PatternFn
     pattern: Pattern
     matched: list[Event] = field(default_factory=list)
@@ -52,13 +68,6 @@ class WaitConsumer:
     @property
     def empty(self) -> bool:
         return not self.pattern and not self.error
-
-    def consume(self, event: Event) -> bool:
-        """Expects events to arrive in an order.
-        Closes thread when all patterns are matched,
-        or an unknown event is received.
-        """
-        return self._consume(event)
 
     def handle(self, event: Event, emitter: EventBus) -> bool:
         return self._consume(event)
@@ -128,6 +137,7 @@ class ServersStarted:
 
 @contextmanager
 def create_server() -> Generator[MemoryBus, None, None]:
+    """Create a A server and a Cerebro server and wait for them to start."""
     emitter = MemoryBus()
     with closing(emitter):
         cer = Cerebro(emitter=emitter)
@@ -144,13 +154,3 @@ def create_server() -> Generator[MemoryBus, None, None]:
         cer.start()
         thread.join(timeout=1)
         yield emitter
-
-
-@dataclass
-class NameMatcher:
-    task_name: str
-
-    def __call__(self, event: Event) -> bool:
-        if not isinstance(event, pb2.TaskStateEvent):
-            return False
-        return event.event.task_name == self.task_name

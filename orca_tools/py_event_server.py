@@ -4,13 +4,14 @@ import queue
 import redis
 from dataclasses import dataclass
 from collections.abc import Callable, Generator
-from typing import Protocol, Any
+from typing import Protocol
 from threading import Thread
 from functools import cached_property
 
 from orca_tools.protos import decode_event, Event, encode_event
 from orca_tools.redis_orca import get_connection
 from generated_grpc import orca_pb2 as pb2
+from result import as_result, Ok, Err
 
 MESSAGE_CHANNEL = "orca:events_TestPipe1337"  # Integration Test Channel - needs to be dynamic for prod/local_test -> hence can't be fixed here in main package
 
@@ -21,11 +22,15 @@ class EventListener(Protocol):
 
 
 class EventBus(Protocol):
+    def close(self) -> None:
+        """Close the EventBus"""
+        ...
+
     def subscribe_thread(
         self,
         callback: EventListener,
         sub_name: str | None = None,
-    ) -> Any:
+    ) -> Thread:
         """Start listening on a new thread."""
         ...
 
@@ -41,24 +46,26 @@ class MemoryThreadWrapper:
     emitter: EventBus
     name: str
 
-    def worker_thread(self):
-        while True:
-            try:
-                should_break = self._work()
-                if should_break:
-                    break
-            except Exception as e:
+    def worker_thread(self) -> None:
+        """Loop via recursive calls."""
+        match self._work():
+            case Ok(True):
+                return None
+            case Ok(False):
+                # Continue working / recusive call
+                return self.worker_thread()
+            case Err(e):
                 print(f"Error in Thread {self.name} {e=}")
                 traceback.print_exc()
-                break
+                return None
 
+    @as_result(Exception)
     def _work(self) -> bool:
         message = self.queue.get()
         if message == "stop":
             return True
 
-        res = self.listener(message, self.emitter)
-        return res or False
+        return self.listener(message, self.emitter) or False
 
     def stop(self):
         self.queue.put("stop")
@@ -143,6 +150,9 @@ class RedisBus(EventBus):
 
     def publish(self, event: Event) -> None:
         self.connection.publish(MESSAGE_CHANNEL, encode_event(event))
+
+    def close(self):
+        self.connection.close()
 
 
 emitter = RedisBus()
