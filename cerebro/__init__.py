@@ -259,7 +259,6 @@ class Cerebro:
     def start(self) -> None:
         print("Starting")
         self._listener = self.emitter.subscribe_thread(self._handler, "crebro")
-        time.sleep(1)
         self.publish(
             pb2.DescribeServerReq(
                 event=pb2.EventCore(
