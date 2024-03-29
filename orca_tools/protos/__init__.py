@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
-from typing import Union
+from typing import TypeAlias, Union
 from google.protobuf.timestamp_pb2 import Timestamp as _Timestamp
-from generated_grpc import orca_pb2 as pb2
+import generated_grpc.orca_pb2 as pb2
 from generated_grpc import orca_enums
 from google.protobuf import message as _message
 
@@ -10,7 +10,7 @@ from orca_tools.utils import orca_id
 
 _NULL_BYTE = b"\x00"
 
-Event = (
+Event: TypeAlias = (
     pb2.TaskStateEvent
     | pb2.RunTaskEvent
     | pb2.TaskCompleteReq

@@ -118,7 +118,7 @@ def test_requires_unknown_task() -> None:
         [
             TaskStateMatcher("task_non_existing", en.TaskState.NOT_EXISTING),
             TaskStateMatcher(
-                "task_requires_non_extisting_task", en.TaskState.FAILED_UPSTREAM
+                "task_requires_non_extisting_task", en.TaskState.NOT_EXISTING_UPSTREAM
             ),
         ]
     ]

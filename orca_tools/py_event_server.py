@@ -10,7 +10,7 @@ from functools import cached_property
 
 from orca_tools.protos import decode_event, Event, encode_event
 from orca_tools.redis_orca import get_connection
-from generated_grpc import orca_pb2 as pb2
+import generated_grpc.orca_pb2 as pb2
 from result import as_result, Ok, Err
 
 MESSAGE_CHANNEL = "orca:events_TestPipe1337"  # Integration Test Channel - needs to be dynamic for prod/local_test -> hence can't be fixed here in main package

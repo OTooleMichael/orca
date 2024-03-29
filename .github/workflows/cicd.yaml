@@ -11,6 +11,11 @@ jobs:
         uses: actions/checkout@v3
       - name: start containers
         run: docker-compose up -d --build
+      - name: Run Lint
+        run: |
+          docker-compose run \
+            --no-deps --rm --entrypoint="" cerebro \
+            bash scripts/format.sh
       - name: Run Pytests
         run: |
           docker compose run \

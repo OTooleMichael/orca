@@ -5,7 +5,8 @@ from orca_tools.models import Task
 from orca_tools.py_event_server import EventBus, emitter
 from orca_tools.protos import Event
 from orca_tools.utils import orca_id
-from generated_grpc import orca_pb2 as pb2, orca_enums
+from generated_grpc import orca_enums
+import generated_grpc.orca_pb2 as pb2
 from threading import Thread
 
 

@@ -1,17 +1,17 @@
 from collections.abc import Callable, Generator
 
 # import inspect
-import time
 from threading import Lock
 from dataclasses import dataclass, field
 from contextlib import contextmanager
-from typing import ContextManager
+from typing import ContextManager, cast
 
 from orca_tools.models import Task
-from orca_tools.py_event_server import EventBus, MemoryBus, emitter as _emitter
+from orca_tools.py_event_server import EventBus, emitter as _emitter
 from orca_tools.utils import orca_id
 from orca_tools.protos import Event, is_terminal_state
-from generated_grpc import orca_pb2 as pb2, orca_enums
+import generated_grpc.orca_pb2 as pb2
+from generated_grpc import orca_enums as en
 
 
 @dataclass
@@ -54,7 +54,7 @@ class DagRun:
     def _complete_event(self, event: pb2.TaskCompleteRes, emitter) -> None:
         task_name = event.event.task_name
         self._pending_completeness_check.remove(task_name)
-        is_completed = event.state == orca_enums.TaskState.COMPLETED
+        is_completed = event.state == en.TaskState.COMPLETED
         if is_completed:
             self.already_completed.append(task_name)
             return self.build(emitter)
@@ -83,7 +83,7 @@ class DagRun:
             task_state = self.cerebro.get_task_state(
                 current_task, has_lock=self._has_lock
             )
-            if task_state == orca_enums.TaskState.WAITING:
+            if task_state == en.TaskState.WAITING:
                 continue
 
             is_completed = is_terminal_state(task_state)
@@ -91,7 +91,7 @@ class DagRun:
                 self.already_completed.append(current_task)
                 continue
 
-            if task_state not in (orca_enums.TaskState.IDLE,):
+            if task_state not in (en.TaskState.IDLE,):
                 continue
             self._start_waiting(current_task, emitter)
 
@@ -186,9 +186,9 @@ class Waiter:
         if task_name not in self.upstream_tasks:
             return False
 
-        if orca_enums.TaskState(event.event.state) in (
-            orca_enums.TaskState.FAILED,
-            orca_enums.TaskState.FAILED_UPSTREAM,
+        if en.TaskState(event.event.state) in (
+            en.TaskState.FAILED,
+            en.TaskState.FAILED_UPSTREAM,
         ):
             self._is_failed = True
 
@@ -279,9 +279,7 @@ class Cerebro:
             self._graph_edge(task.name, upstream_task)
 
     def _handle_task_state(self, event: pb2.TaskStateEvent, emitter: EventBus) -> None:
-        if orca_enums.TaskState.from_grpc(event.event.state) in (
-            orca_enums.TaskState.NA,
-        ):
+        if en.TaskState.from_grpc(event.event.state) in (en.TaskState.NA,):
             return
         for task_name, waiter in list(self.waiters.items()):
             if waiter.handler(event, emitter):
@@ -320,20 +318,14 @@ class Cerebro:
         print("UNKNOWN EVENT", event.DESCRIPTOR.name, event)
         return
 
-    def get_task_state(
-        self, task_name: str, has_lock: bool = False
-    ) -> orca_enums.TaskState:
+    def get_task_state(self, task_name: str, has_lock: bool = False) -> en.TaskState:
         if not has_lock:
             with self.thread_lock():
                 return self.get_task_state(task_name, has_lock=True)
         if task_name in self.waiters:
-            return orca_enums.TaskState.WAITING
+            return en.TaskState.WAITING
         event = self.task_state.get(task_name)
-        return (
-            orca_enums.TaskState.from_grpc(event.event.state)
-            if event
-            else orca_enums.TaskState.IDLE
-        )
+        return en.TaskState.from_grpc(event.event.state) if event else en.TaskState.IDLE
 
     def build_subgraph(self, task_name: str) -> list[tuple[str, str | None]]:
         connections: list[tuple[str, str | None]] = []
@@ -350,7 +342,7 @@ class Cerebro:
                         event_id=orca_id("event"),
                         source_server_id="cerebro",
                         task_name=current,
-                        state=pb2.NOT_EXISTING,
+                        state=en.TaskState.pb().NOT_EXISTING,
                     )
                 )
                 self.emitter.publish(event)
@@ -359,7 +351,7 @@ class Cerebro:
                         event_id=orca_id("event"),
                         source_server_id="cerebro",
                         task_name=task_name,
-                        state=pb2.FAILED_UPSTREAM,  # possible additional state: NOT_EXISTING_TASK_UPSTREAM
+                        state=en.TaskState.pb().NOT_EXISTING_UPSTREAM,
                     )
                 )
                 self.emitter.publish(event2)
@@ -368,8 +360,8 @@ class Cerebro:
             subgraph_items.append(current)
             children = self.graph.get(current, [])
             to_visit.extend(children)
-            children = children or [None]
-            connections.extend([(current, child) for child in children])
+            children_list = cast(list[str | None], children) or [None]
+            connections.extend([(current, child) for child in children_list])
         return connections
 
     def create_run(self, task_name: str) -> DagRun | None:
