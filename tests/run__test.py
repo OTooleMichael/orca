@@ -4,7 +4,7 @@ import pytest
 from orca_tools.protos import Event
 from orca_tools.task_server_utils import Server
 from task_servers import task_server_nums
-from generated_grpc import orca_pb2 as pb2
+import generated_grpc.orca_pb2 as pb2
 from generated_grpc import orca_enums as en
 from tests.utils import (
     Pattern,
@@ -193,12 +193,28 @@ def test_failing_upstream() -> None:
         [TaskStateMatcher("task_requires_failing", en.TaskState.FAILED_UPSTREAM)],
     ]
 
+    consumer = WaitConsumer(
+        pattern=pattern,
+        targeted=lambda event: isinstance(event, pb2.TaskStateEvent),
+    )
     with create_server() as emitter:
         run_task(
             "task_requires_failing",
-            WaitConsumer(
-                pattern=pattern,
-                targeted=lambda event: isinstance(event, pb2.TaskStateEvent),
-            ),
+            consumer=consumer,
             emitter=emitter,
         )
+
+    error = next(
+        (
+            e.error
+            for e in consumer.matched
+            if isinstance(e, pb2.TaskStateEvent)
+            and e.error
+            and e.error.task_name == "task_failing_root"
+        ),
+        None,
+    )
+    assert isinstance(error, pb2.Error)
+    text = error.text
+    assert "Permanent fail" in text
+    assert "ValueError" in error.stack_trace

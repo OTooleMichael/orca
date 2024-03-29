@@ -148,11 +148,11 @@ class Waiter:
     thread_lock: Callable[[], ContextManager[None]]
     waiter_id: str = field(default_factory=lambda: orca_id("waiter"))
     _is_dead: bool = False
-    _is_failed: bool = False
+    _error_payload: None | pb2.Error = None
     _original_upstream_tasks: set[str] = field(init=False, default_factory=set)
 
     def run(self, emitter: EventBus) -> None:
-        if self._is_failed:
+        if self._error_payload:
             emitter.publish(
                 pb2.TaskStateEvent(
                     event=pb2.EventCore(
@@ -161,6 +161,7 @@ class Waiter:
                         task_name=self.task_name,
                         state=pb2.FAILED_UPSTREAM,
                     ),
+                    error=self._error_payload,
                 ),
             )
             return
@@ -190,7 +191,10 @@ class Waiter:
             en.TaskState.FAILED,
             en.TaskState.FAILED_UPSTREAM,
         ):
-            self._is_failed = True
+            self._error_payload = event.error or pb2.Error(
+                text=f"Unknown error in {task_name}",
+                task_name=task_name,
+            )
 
         with self.thread_lock():
             if not self._original_upstream_tasks:
@@ -337,22 +341,28 @@ class Cerebro:
                 continue
 
             if not self.tasks.get(current):
+                error = pb2.Error(
+                    text=f"Could not create dag for '{task_name}' due to missing task '{current}'",
+                    task_name=current,
+                )
                 event = pb2.TaskStateEvent(
+                    error=error,
                     event=pb2.EventCore(
                         event_id=orca_id("event"),
                         source_server_id="cerebro",
                         task_name=current,
                         state=en.TaskState.pb().NOT_EXISTING,
-                    )
+                    ),
                 )
                 self.emitter.publish(event)
                 event2 = pb2.TaskStateEvent(
+                    error=error,
                     event=pb2.EventCore(
                         event_id=orca_id("event"),
                         source_server_id="cerebro",
                         task_name=task_name,
                         state=en.TaskState.pb().NOT_EXISTING_UPSTREAM,
-                    )
+                    ),
                 )
                 self.emitter.publish(event2)
                 return []

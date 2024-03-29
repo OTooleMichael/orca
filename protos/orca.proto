@@ -34,8 +34,15 @@ message UserRunTaskEvent {
   EventCore event = 1;
 }
 
+message Error {
+  string text = 1;
+  string stack_trace = 2;
+  string task_name = 3;
+}
+
 message TaskStateEvent {
   EventCore event = 1;
+  optional Error error = 2;
 }
 
 message TaskCompleteReq {

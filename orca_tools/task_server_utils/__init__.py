@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from result import Err, Result
+import traceback
+from result import Err, Result, Ok
 import copy
 from orca_tools.models import Task
 from orca_tools.py_event_server import EventBus, emitter
@@ -8,6 +9,9 @@ from orca_tools.utils import orca_id
 from generated_grpc import orca_enums
 import generated_grpc.orca_pb2 as pb2
 from threading import Thread
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 @dataclass
@@ -70,7 +74,7 @@ class Server:
     def get_task(self, name: str) -> Task | None:
         return next((task for task in self.tasks if task.name == name), None)
 
-    def _safe_run(self, task: Task) -> Result[None, Exception]:
+    def _safe_run(self, task: Task) -> Result[None, pb2.Error | RuntimeError]:
         # Create a thread to run the function
         task_clone = copy.copy(task)
         try:
@@ -81,7 +85,7 @@ class Server:
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            return Err(e)
+            return Err(RuntimeError(f"Critical error in running task {task.name} {e}"))
 
     def run_task(self, name: str) -> None:
         task = self.get_task(name)
@@ -98,18 +102,38 @@ class Server:
                 )
             )
         )
-        state = orca_enums.TaskState.pb().COMPLETED
         res = self._safe_run(task)
-        if res.is_err():
-            state = orca_enums.TaskState.pb().FAILED
-        print(f"finished task {name}")
+        print(f"finished task {name} {res.is_err()=}")
+        if isinstance(res, Ok):
+            del self._states[name]
+            self._publish(
+                pb2.TaskStateEvent(
+                    event=pb2.EventCore(
+                        task_name=name,
+                        state=orca_enums.TaskState.pb().COMPLETED,
+                    )
+                )
+            )
+            return
+
         del self._states[name]
+        error = res.err_value
+        if isinstance(error, RuntimeError):
+            # A more serious error
+            logger.exception(error)
+            error = pb2.Error(
+                task_name=name,
+                text=str(error),
+                stack_trace=traceback.format_exc(),
+            )
+
         self._publish(
             pb2.TaskStateEvent(
+                error=error,
                 event=pb2.EventCore(
                     task_name=name,
-                    state=state,
-                )
+                    state=orca_enums.TaskState.pb().FAILED,
+                ),
             )
         )
 

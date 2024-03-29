@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from collections.abc import Callable
 
+import traceback
 from result import Result, Err, Ok
 import generated_grpc.orca_pb2 as pb2
 
@@ -26,7 +27,7 @@ class Task:
     upstream_tasks: list[str] = field(default_factory=list)
     run: RunableType | None = None
     complete_check: Callable[[], bool] | None = None
-    _result: Result[None, Exception] | None = None
+    _result: Result[None, pb2.Error] | None = None
 
     @classmethod
     def from_pb(cls, pb: pb2.Task) -> "Task":
@@ -44,7 +45,7 @@ class Task:
         )
 
     @property
-    def result(self) -> Result[None, Exception]:
+    def result(self) -> Result[None, pb2.Error | RuntimeError]:
         if self._result is None:
             return Err(RuntimeError("Task has not been run"))
         return self._result
@@ -53,7 +54,8 @@ class Task:
         if self.run:
             self.run()
 
-    def safe_run(self) -> Result[None, Exception]:
+    def safe_run(self) -> Result[None, pb2.Error]:
+        """Run the task and catch any exceptions."""
         try:
             self.__call__()
             self._result = Ok(None)
@@ -61,7 +63,13 @@ class Task:
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            self._result = Err(e)
+            stack_trace = traceback.format_exc()
+            error = pb2.Error(
+                task_name=self.name,
+                text=str(e),
+                stack_trace=stack_trace,
+            )
+            self._result = Err(error)
             return self._result
 
     def is_complete(self) -> bool:
