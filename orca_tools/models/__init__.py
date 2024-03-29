@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 from collections.abc import Callable
 
 from result import Result, Err, Ok
-from generated_grpc import orca_pb2 as pb2
+import generated_grpc.orca_pb2 as pb2
+
 
 STATES = [
     "pending",

@@ -13,6 +13,7 @@ enum TaskState {
   FAILED_UPSTREAM = 7;
   STARTED = 8;
   NOT_EXISTING = 9;
+  NOT_EXISTING_UPSTREAM = 10;
 }
 
 enum ServerState {

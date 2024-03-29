@@ -3,7 +3,7 @@ from functools import partial
 
 from orca_tools.py_event_server import EventBus, emitter
 from orca_tools.protos import Event
-from generated_grpc import orca_pb2 as pb2
+import generated_grpc.orca_pb2 as pb2
 
 
 def _waiter(event: Event, _: EventBus, target_task: str) -> bool:

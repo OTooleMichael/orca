@@ -7,7 +7,7 @@ from orca_tools.protos import Event
 from orca_tools.py_event_server import MemoryBus, EventBus
 from cerebro import Cerebro
 from task_servers import task_server_letters
-from generated_grpc import orca_pb2 as pb2
+import generated_grpc.orca_pb2 as pb2
 from generated_grpc import orca_enums as en
 
 
